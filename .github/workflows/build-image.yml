@@ -512,11 +512,20 @@ jobs:
 
       - name: Prepare artifact name (escape slashes for nested folders)
         id: artifact-name
+        if: always()  # Always run to ensure outputs are set even on failure
         run: |
           # Replace / with _ for artifact names (nested folders like traefik/traefik)
           ESCAPED_NAME="${{ matrix.config.image.name }}"
           ESCAPED_NAME="${ESCAPED_NAME//\//_}"
+
+          # Ensure name is never empty - fallback to "unknown" if empty
+          if [ -z "$ESCAPED_NAME" ]; then
+            echo "WARNING: Image name is empty, using 'unknown'" >&2
+            ESCAPED_NAME="unknown"
+          fi
+
           echo "escaped=${ESCAPED_NAME}" >> "$GITHUB_OUTPUT"
+          echo "Artifact name prefix: ${ESCAPED_NAME}"
 
       - name: Upload digest artifact
         if: steps.build.outcome == 'success'
@@ -525,7 +534,6 @@ jobs:
           name: digest-${{ steps.artifact-name.outputs.escaped }}-${{ matrix.config.image.variant }}-${{ matrix.config.arch }}
           path: /tmp/digests/${{ matrix.config.arch }}.txt
           retention-days: 1
-          overwrite: true
 
       - name: Record build status
         if: always()
@@ -550,7 +558,6 @@ jobs:
           name: status-${{ steps.artifact-name.outputs.escaped }}-${{ matrix.config.image.variant }}-${{ matrix.config.arch }}
           path: /tmp/status/${{ matrix.config.arch }}.txt
           retention-days: 1
-          overwrite: true
 
       - name: Record build end time and duration
         id: end-time
