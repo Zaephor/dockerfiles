@@ -1,8 +1,7 @@
 name: catthehacker-ubuntu-dind
 description: Docker-in-Docker enabled version of catthehacker/ubuntu for GitHub Actions
-version_source: docker_tag
-
-source:
+version_source:
+  type: docker_tag
   # Watch the act-24.04 tag for version changes
   # Both variants will rebuild when this changes
   # TODO: Enhance to track each variant independently via SHA256

@@ -140,7 +140,11 @@ parse_detectors_from_config() {
   else
     # Single object syntax (backward compatible)
     echo "INFO: version_source is single object (fallback logic not used)" >&2
-    echo "$version_source"
+    # Convert to JSON for consistent parsing (compact, single line)
+    yq eval '.version_source' "$config_file" -o json -I=0 2>/dev/null || {
+      echo "ERROR: Failed to convert version_source to JSON from $config_file" >&2
+      return 1
+    }
   fi
 
   return 0
