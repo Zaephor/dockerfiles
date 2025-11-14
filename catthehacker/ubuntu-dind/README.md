@@ -154,6 +154,108 @@ docker run --privileged -e HOST_UID=$(id -u) -e HOST_GID=$(id -g) \
 
 Without `HOST_UID`, the container runs in root mode (compatible with Gitea Runner and similar tools).
 
+## Advanced Usage
+
+### Build Cache Optimization for Agentic Tools
+
+These images are specifically optimized for AI agents and automated development tools that frequently rebuild containers. Key optimizations include:
+
+**Multi-Architecture Support**
+
+Pre-built images for both `amd64` and `arm64` reduce the need for local builds:
+
+```bash
+# No architecture-specific rebuild needed - correct variant pulled automatically
+docker pull ghcr.io/zaephor/dockerfiles/catthehacker/ubuntu-dind:act-24.04
+```
+
+**Layer Cache Efficiency**
+
+The Dockerfile is structured to maximize layer reuse:
+
+1. **Base layer stability**: Built on top of stable `ghcr.io/catthehacker/ubuntu` images
+2. **Dependency installation**: Docker packages installed in a single optimized layer
+3. **Configuration separation**: Daemon configuration in separate layer from binaries
+4. **Entrypoint isolation**: Entrypoint script as final layer for easy updates
+
+This structure means most rebuilds only need to update the entrypoint layer, preserving the expensive Docker installation layer.
+
+**Build History Tracking**
+
+Each build records metadata in `history.jsonl` for transparency and debugging:
+
+```bash
+# View build history
+cat catthehacker/ubuntu-dind/history.jsonl | jq .
+
+# Check specific build details
+cat catthehacker/ubuntu-dind/history.jsonl | jq 'select(.build_status == "success") | {timestamp, digest, duration}'
+```
+
+**Automated Version Tracking**
+
+The CI system automatically detects upstream updates and rebuilds only when necessary:
+
+- Monitors `ghcr.io/catthehacker/ubuntu` base image updates
+- Compares digests to determine if rebuild is needed
+- Skips builds when no changes detected (reduces bandwidth and build time)
+
+**Why This Matters for Agentic Tools**
+
+AI agents and automation tools benefit from:
+
+1. **Predictable behavior**: Consistent base layer means reproducible builds
+2. **Fast iteration**: Layer caching dramatically reduces rebuild times
+3. **Bandwidth efficiency**: Multi-arch manifests mean no cross-compilation needed
+4. **Auditability**: Build history provides traceable image lineage
+5. **Reliability**: Health checks ensure container is ready before agent proceeds
+
+**Example: Claude Code Usage**
+
+When using this image with Claude Code or similar AI coding assistants:
+
+```yaml
+# .github/workflows/ai-assisted-build.yml
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/zaephor/dockerfiles/catthehacker/ubuntu-dind:act-24.04
+      options: --privileged
+      env:
+        DOCKER_REGISTRY_MIRRORS: "https://mirror.gcr.io"  # Speed up pulls
+    steps:
+      - uses: actions/checkout@v4
+
+      # Wait for daemon to be ready (health check handles this automatically)
+      - name: Verify Docker is ready
+        run: docker info
+
+      # Agent can now use Docker commands reliably
+      - name: AI-directed container builds
+        run: |
+          # Your AI agent's docker commands here
+          docker build -t app .
+          docker run app test
+```
+
+**Layer Inspection for Optimization**
+
+You can inspect the image layers to understand caching behavior:
+
+```bash
+# View image history and layer sizes
+docker history ghcr.io/zaephor/dockerfiles/catthehacker/ubuntu-dind:act-24.04
+
+# Inspect specific layer
+docker inspect ghcr.io/zaephor/dockerfiles/catthehacker/ubuntu-dind:act-24.04 | jq '.[0].RootFS.Layers'
+
+# Compare layer reuse between versions
+docker history ghcr.io/zaephor/dockerfiles/catthehacker/ubuntu-dind:act-24.04 > v1.txt
+docker history ghcr.io/zaephor/dockerfiles/catthehacker/ubuntu-dind:act-22.04 > v2.txt
+diff v1.txt v2.txt
+```
+
 ## Architecture Support
 
 Both variants are built for:
