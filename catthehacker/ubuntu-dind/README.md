@@ -54,6 +54,105 @@ docker run --privileged -it ghcr.io/zaephor/dockerfiles/catthehacker/ubuntu-dind
 - **Containerd**: Container runtime
 - **Overlay2 Storage Driver**: Efficient layer management
 - **BuildKit**: Modern build backend enabled by default
+- **Health Check**: Automatic verification of Docker daemon readiness
+- **Configurable Daemon**: Environment-based daemon.json configuration
+
+## Verifying Installation
+
+Once the container starts, you can verify the Docker installation:
+
+```bash
+# Check Docker version
+docker --version
+
+# Verify Docker daemon is running
+docker info
+
+# Check Buildx plugin
+docker buildx version
+
+# Check Compose plugin
+docker compose version
+
+# Verify multi-architecture support
+docker buildx ls
+
+# Inspect daemon configuration
+cat /etc/docker/daemon.json
+```
+
+You can also inspect the image before running:
+
+```bash
+# View image metadata and labels
+docker inspect ghcr.io/zaephor/dockerfiles/catthehacker/ubuntu-dind:act-24.04
+
+# Check installed Docker version without running
+docker run --rm ghcr.io/zaephor/dockerfiles/catthehacker/ubuntu-dind:act-24.04 docker --version
+```
+
+## Configuration
+
+The DinD entrypoint supports several environment variables for customizing the Docker daemon:
+
+### Registry Mirrors
+
+Configure Docker registry mirrors to improve pull performance and reduce bandwidth:
+
+```yaml
+container:
+  image: ghcr.io/zaephor/dockerfiles/catthehacker/ubuntu-dind:act-24.04
+  options: --privileged
+  env:
+    DOCKER_REGISTRY_MIRRORS: "https://mirror.gcr.io,https://registry.internal.local"
+```
+
+### Insecure Registries
+
+Allow connections to registries without valid TLS certificates:
+
+```yaml
+env:
+  DOCKER_INSECURE_REGISTRIES: "registry.local:5000,10.0.0.5:5000"
+```
+
+### Storage Driver
+
+Override the default overlay2 storage driver:
+
+```yaml
+env:
+  DOCKER_STORAGE_DRIVER: "vfs"
+```
+
+### BuildKit
+
+Disable BuildKit if needed (enabled by default):
+
+```yaml
+env:
+  DOCKER_BUILDKIT_ENABLED: "false"
+```
+
+### Full Daemon Override
+
+Provide a complete custom daemon.json:
+
+```yaml
+env:
+  DOCKER_DAEMON_JSON: '{"storage-driver":"overlay2","log-driver":"json-file","log-opts":{"max-size":"10m"}}'
+```
+
+### User Mode
+
+Run as a non-root user inside the container (useful for local development):
+
+```bash
+docker run --privileged -e HOST_UID=$(id -u) -e HOST_GID=$(id -g) \
+  -it ghcr.io/zaephor/dockerfiles/catthehacker/ubuntu-dind:act-24.04
+```
+
+Without `HOST_UID`, the container runs in root mode (compatible with Gitea Runner and similar tools).
 
 ## Architecture Support
 
