@@ -732,14 +732,14 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Check if there are any history files to commit
-          if git diff --quiet -- '*/history.jsonl'; then
+          # Add all history.jsonl files (including untracked ones)
+          git add '*/history.jsonl'
+
+          # Check if there are any staged changes
+          if git diff --cached --quiet; then
             echo "No history changes to commit"
             exit 0
           fi
-
-          # Add all history.jsonl files
-          git add '*/history.jsonl'
 
           # Create commit with summary
           COMMIT_COUNT=$(git diff --cached --numstat | wc -l)
