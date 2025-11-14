@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 # Image discovery library
 # Discovers all Docker image directories (supports nested folders)
-# Images are identified by presence of both Dockerfile and metadata.yaml
+# Images are identified by presence of metadata.yaml and at least one Dockerfile
+# (either default Dockerfile or any Dockerfile.* variant)
 
 set -euo pipefail
 
 # Discover all image directories in repository
-# Discovers directories containing Dockerfile and metadata.yaml
+# Discovers directories containing metadata.yaml and at least one Dockerfile
+# (either default Dockerfile or any Dockerfile.* variant)
 # Supports nested folders (e.g., traefik/traefik, traefik/whoami)
 # Args:
 #   $1: Repository root directory
@@ -47,8 +49,9 @@ discover_images() {
         done
         [[ "$skip" == "true" ]] && continue
 
-        # Check if Dockerfile exists alongside metadata.yaml
-        if [[ -f "${image_dir}/Dockerfile" ]]; then
+        # Check if any Dockerfile exists alongside metadata.yaml
+        # Accept either default Dockerfile or any Dockerfile.* variant
+        if [[ -f "${image_dir}/Dockerfile" ]] || compgen -G "${image_dir}/Dockerfile.*" > /dev/null 2>&1; then
             images+=("$rel_path")
         fi
     done < <(find "$repo_root" -type f -name "metadata.yaml" 2>/dev/null)
@@ -131,11 +134,13 @@ get_history_file() {
 verify_image_directory() {
     local image_dir="${1:-.}"
 
-    if [[ ! -f "$image_dir/Dockerfile" ]]; then
+    # Check metadata.yaml exists
+    if [[ ! -f "$image_dir/metadata.yaml" ]]; then
         return 1
     fi
 
-    if [[ ! -f "$image_dir/metadata.yaml" ]]; then
+    # Check at least one Dockerfile exists (default or variant)
+    if [[ ! -f "$image_dir/Dockerfile" ]] && ! compgen -G "$image_dir/Dockerfile.*" > /dev/null 2>&1; then
         return 1
     fi
 
