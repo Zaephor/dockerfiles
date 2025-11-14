@@ -668,6 +668,27 @@ jobs:
 
           log_structured "$IMAGE_DIR" "$ARCH" "HISTORY" "History recorded with retry_count=$RETRY_COUNT, cache_hit_rate=$CACHE_HIT_RATE, image_size=$IMAGE_SIZE, build_status=$BUILD_STATUS"
 
+      - name: Prepare history artifact
+        if: always()
+        run: |
+          # Create a temp directory with the image path metadata
+          mkdir -p /tmp/history-upload
+          echo "${{ matrix.config.image.name }}" > /tmp/history-upload/image_path.txt
+
+          # Copy history file if it exists
+          if [ -f "${{ matrix.config.image.name }}/history.jsonl" ]; then
+            cp "${{ matrix.config.image.name }}/history.jsonl" /tmp/history-upload/
+          fi
+
+      - name: Upload history artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: history-${{ steps.artifact-name.outputs.escaped }}-${{ matrix.config.image.variant }}-${{ matrix.config.arch }}
+          path: /tmp/history-upload/
+          retention-days: 1
+          if-no-files-found: ignore
+
       - name: Record rebuild history
         if: always() && github.event.inputs.rebuild_mode == 'true'
         run: |
@@ -828,6 +849,63 @@ jobs:
           pattern: digest-*
           path: /tmp/digests
           merge-multiple: true
+
+      - name: Download all history artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: history-*
+          path: /tmp/history-artifacts
+
+      - name: Merge history files from all architectures
+        run: |
+          # Each architecture creates a history artifact containing:
+          # - image_path.txt: The image directory path
+          # - history.jsonl: The history entries for that arch
+
+          echo "Merging history files from artifacts..."
+
+          for artifact_dir in /tmp/history-artifacts/history-*; do
+            if [ ! -d "$artifact_dir" ]; then
+              continue
+            fi
+
+            artifact_name=$(basename "$artifact_dir")
+
+            # Read the image path from metadata
+            image_path_file="$artifact_dir/image_path.txt"
+            history_file="$artifact_dir/history.jsonl"
+
+            if [ ! -f "$image_path_file" ]; then
+              echo "WARNING: No image_path.txt in $artifact_name"
+              continue
+            fi
+
+            if [ ! -f "$history_file" ]; then
+              echo "WARNING: No history.jsonl in $artifact_name"
+              continue
+            fi
+
+            # Read the image directory path
+            image_dir=$(cat "$image_path_file")
+
+            echo "Processing artifact: $artifact_name"
+            echo "  Image directory: $image_dir"
+
+            # Append history entries to the image's history.jsonl
+            target_file="${image_dir}/history.jsonl"
+            mkdir -p "$(dirname "$target_file")"
+
+            # Append the new entries
+            cat "$history_file" >> "$target_file"
+
+            echo "  Appended $(wc -l < "$history_file") line(s) to $target_file"
+          done
+
+          echo ""
+          echo "History merge complete. Updated files:"
+          find . -name 'history.jsonl' -type f | while read -r f; do
+            echo "  $f ($(wc -l < "$f") lines)"
+          done
 
       - name: Commit updated history files
         run: |
