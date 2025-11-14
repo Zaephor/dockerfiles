@@ -28,7 +28,11 @@ RUN apt-get update && \
 # Docker auto-start script (for when entrypoint is overridden by runners)
 COPY init-docker.sh /usr/local/bin/init-docker.sh
 RUN chmod +x /usr/local/bin/init-docker.sh && \
-    ln -s /usr/local/bin/init-docker.sh /etc/profile.d/99-docker.sh
+    ln -s /usr/local/bin/init-docker.sh /etc/profile.d/99-docker.sh && \
+    echo 'source /usr/local/bin/init-docker.sh' >> /etc/bash.bashrc
+
+# Set BASH_ENV to auto-source init script for non-interactive shells
+ENV BASH_ENV=/usr/local/bin/init-docker.sh
 
 # Docker-in-Docker entrypoint wrapper
 COPY entrypoint-dind.sh /usr/local/bin/entrypoint-dind.sh

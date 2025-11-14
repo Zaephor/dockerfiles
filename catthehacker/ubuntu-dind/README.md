@@ -62,7 +62,10 @@ jobs:
         run: docker build -t myapp .
 ```
 
-**Note:** Docker daemon auto-starts even when Gitea Runner overrides the entrypoint. The image includes an auto-start script in `/etc/profile.d/` that ensures dockerd is running on any shell session.
+**Note:** Docker daemon auto-starts even when Gitea Runner overrides the entrypoint. The image includes multiple hooks to ensure dockerd starts:
+- `BASH_ENV` for non-interactive bash shells
+- `/etc/bash.bashrc` for interactive shells
+- `/etc/profile.d/99-docker.sh` for login shells
 
 ## Features
 
