@@ -396,27 +396,21 @@ jobs:
           max_attempts: 2
           retry_wait_seconds: 30
           command: |
-            # Decode README from base64 and prepare label args
-            LABEL_ARGS=""
-            if [ -n "${{ steps.meta.outputs.image_description_b64 }}" ]; then
-              # Decode base64, convert to single line, escape quotes and backslashes
-              IMAGE_DESC=$(echo "${{ steps.meta.outputs.image_description_b64 }}" | base64 -d | tr '\n' ' ' | sed 's/\\/\\\\/g' | sed 's/"/\\"/g')
-              LABEL_ARGS="--label org.opencontainers.image.description=\"${IMAGE_DESC}\""
-            fi
+            # Source build utilities
+            source .github/scripts/lib/logging.sh
 
-            docker buildx build \
-              --platform ${{ matrix.config.platform }} \
-              --file ${{ matrix.config.image.dockerfile }} \
-              --cache-from type=gha,scope=buildx-${{ matrix.config.image.name }}-${{ matrix.config.arch }}-${{ matrix.config.image.variant }} \
-              --cache-from type=registry,ref=${{ steps.meta.outputs.cache_tag }}-${{ matrix.config.image.variant }} \
-              --cache-to type=gha,mode=max,scope=buildx-${{ matrix.config.image.name }}-${{ matrix.config.arch }}-${{ matrix.config.image.variant }} \
-              --cache-to type=registry,ref=${{ steps.meta.outputs.cache_tag }}-${{ matrix.config.image.variant }},mode=max \
-              --label org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }} \
-              --label org.opencontainers.image.revision=${{ github.sha }} \
-              ${LABEL_ARGS} \
-              --metadata-file /tmp/build-metadata.json \
-              --output type=image,name=${{ steps.meta.outputs.image_repo }},push-by-digest=true,name-canonical=true,push=true \
-              ${{ matrix.config.image.name }}
+            # Call build-image.sh script to handle complexity
+            .github/scripts/build-image.sh \
+              --image-name "${{ matrix.config.image.name }}" \
+              --platform "${{ matrix.config.platform }}" \
+              --dockerfile "${{ matrix.config.image.dockerfile }}" \
+              --variant "${{ matrix.config.image.variant }}" \
+              --arch "${{ matrix.config.arch }}" \
+              --image-repo "${{ steps.meta.outputs.image_repo }}" \
+              --cache-tag "${{ steps.meta.outputs.cache_tag }}" \
+              --readme-b64 "${{ steps.meta.outputs.image_description_b64 }}" \
+              --source-url "${{ github.server_url }}/${{ github.repository }}" \
+              --revision "${{ github.sha }}"
 
       - name: Retry push if registry temporarily unavailable
         id: push-with-retry
