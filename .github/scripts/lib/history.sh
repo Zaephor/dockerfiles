@@ -189,25 +189,25 @@ append_build_record() {
       local arch_data
       arch_data=$(jq -n \
         --arg status "$status" \
-        --argjson digest "$(jq -Rn --arg d "$digest" '$d | if . == "" then null else . end')" \
-        --argjson duration "$(jq -Rn --arg d "$duration_sec" '$d | if . == "" then null else tonumber end')" \
-        --argjson start_ts "$(jq -Rn --arg d "$start_ts" '$d | if . == "" then null else tonumber end')" \
-        --argjson end_ts "$(jq -Rn --arg d "$end_ts" '$d | if . == "" then null else tonumber end')" \
-        --argjson retry_count "$(jq -Rn --arg d "$retry_count" '$d | if . == "" then null else tonumber end')" \
-        --argjson cache_hit_rate "$(jq -Rn --arg d "$cache_hit_rate" '$d | if . == "" then null else tonumber end')" \
-        --argjson image_size "$(jq -Rn --arg d "$image_size" '$d | if . == "" then null else tonumber end')" \
-        --argjson image_size_change "$(jq -Rn --arg d "$image_size_change" '$d | if . == "" then null else tonumber end')" \
+        --argjson digest "$(jq -Rn --arg d "$digest" 'if $d == "" then null else $d end')" \
+        --argjson duration "$(jq -Rn --arg d "$duration_sec" 'if $d == "" then null else ($d | tonumber) end')" \
+        --argjson start_ts "$(jq -Rn --arg d "$start_ts" 'if $d == "" then null else ($d | tonumber) end')" \
+        --argjson end_ts "$(jq -Rn --arg d "$end_ts" 'if $d == "" then null else ($d | tonumber) end')" \
+        --argjson retry_count "$(jq -Rn --arg d "$retry_count" 'if $d == "" then null else ($d | tonumber) end')" \
+        --argjson cache_hit_rate "$(jq -Rn --arg d "$cache_hit_rate" 'if $d == "" then null else ($d | tonumber) end')" \
+        --argjson image_size "$(jq -Rn --arg d "$image_size" 'if $d == "" then null else ($d | tonumber) end')" \
+        --argjson image_size_change "$(jq -Rn --arg d "$image_size_change" 'if $d == "" then null else ($d | tonumber) end')" \
         '{
-          "status": $status
-        } |
-        if $digest != null then . + {"digest": $digest} else . end |
-        if $duration != null then . + {"duration_seconds": $duration} else . end |
-        if $start_ts != null then . + {"start_timestamp": $start_ts} else . end |
-        if $end_ts != null then . + {"end_timestamp": $end_ts} else . end |
-        if $retry_count != null then . + {"retry_count": $retry_count} else . end |
-        if $cache_hit_rate != null then . + {"cache_hit_rate": $cache_hit_rate} else . end |
-        if $image_size != null then . + {"image_size": $image_size} else . end |
-        if $image_size_change != null then . + {"image_size_change": $image_size_change} else . end')
+          "status": $status,
+          "digest": $digest,
+          "duration_seconds": $duration,
+          "start_timestamp": $start_ts,
+          "end_timestamp": $end_ts,
+          "retry_count": $retry_count,
+          "cache_hit_rate": $cache_hit_rate,
+          "image_size": $image_size,
+          "image_size_change": $image_size_change
+        }')
 
       local new_record
       new_record=$(jq -n \
@@ -243,25 +243,25 @@ append_build_record() {
     local arch_data
     arch_data=$(jq -n \
       --arg status "$status" \
-      --argjson digest "$(jq -Rn --arg d "$digest" '$d | if . == "" then null else . end')" \
-      --argjson duration "$(jq -Rn --arg d "$duration_sec" '$d | if . == "" then null else tonumber end')" \
-      --argjson start_ts "$(jq -Rn --arg d "$start_ts" '$d | if . == "" then null else tonumber end')" \
-      --argjson end_ts "$(jq -Rn --arg d "$end_ts" '$d | if . == "" then null else tonumber end')" \
-      --argjson retry_count "$(jq -Rn --arg d "$retry_count" '$d | if . == "" then null else tonumber end')" \
-      --argjson cache_hit_rate "$(jq -Rn --arg d "$cache_hit_rate" '$d | if . == "" then null else tonumber end')" \
-      --argjson image_size "$(jq -Rn --arg d "$image_size" '$d | if . == "" then null else tonumber end')" \
-      --argjson image_size_change "$(jq -Rn --arg d "$image_size_change" '$d | if . == "" then null else tonumber end')" \
+      --argjson digest "$(jq -Rn --arg d "$digest" 'if $d == "" then null else $d end')" \
+      --argjson duration "$(jq -Rn --arg d "$duration_sec" 'if $d == "" then null else ($d | tonumber) end')" \
+      --argjson start_ts "$(jq -Rn --arg d "$start_ts" 'if $d == "" then null else ($d | tonumber) end')" \
+      --argjson end_ts "$(jq -Rn --arg d "$end_ts" 'if $d == "" then null else ($d | tonumber) end')" \
+      --argjson retry_count "$(jq -Rn --arg d "$retry_count" 'if $d == "" then null else ($d | tonumber) end')" \
+      --argjson cache_hit_rate "$(jq -Rn --arg d "$cache_hit_rate" 'if $d == "" then null else ($d | tonumber) end')" \
+      --argjson image_size "$(jq -Rn --arg d "$image_size" 'if $d == "" then null else ($d | tonumber) end')" \
+      --argjson image_size_change "$(jq -Rn --arg d "$image_size_change" 'if $d == "" then null else ($d | tonumber) end')" \
       '{
-        "status": $status
-      } |
-      if $digest != null then . + {"digest": $digest} else . end |
-      if $duration != null then . + {"duration_seconds": $duration} else . end |
-      if $start_ts != null then . + {"start_timestamp": $start_ts} else . end |
-      if $end_ts != null then . + {"end_timestamp": $end_ts} else . end |
-      if $retry_count != null then . + {"retry_count": $retry_count} else . end |
-      if $cache_hit_rate != null then . + {"cache_hit_rate": $cache_hit_rate} else . end |
-      if $image_size != null then . + {"image_size": $image_size} else . end |
-      if $image_size_change != null then . + {"image_size_change": $image_size_change} else . end')
+        "status": $status,
+        "digest": $digest,
+        "duration_seconds": $duration,
+        "start_timestamp": $start_ts,
+        "end_timestamp": $end_ts,
+        "retry_count": $retry_count,
+        "cache_hit_rate": $cache_hit_rate,
+        "image_size": $image_size,
+        "image_size_change": $image_size_change
+      }')
 
     local new_record
     new_record=$(jq -n \
