@@ -318,7 +318,9 @@ jobs:
 
           # Consolidated cache image with tag per image/arch/variant
           # All cache layers stored in single "buildcache" package
-          CACHE_TAG="ghcr.io/${GHCR_REPO}/buildcache:${IMAGE_NAME}-${ARCH}"
+          # Escape slashes in image name for Docker tag (examples/binary-version → examples_binary-version)
+          CACHE_IMAGE_NAME="${IMAGE_NAME//\//_}"
+          CACHE_TAG="ghcr.io/${GHCR_REPO}/buildcache:${CACHE_IMAGE_NAME}-${ARCH}"
 
           # Read image README for package description (if exists)
           # Use base64 encoding to safely pass through GitHub Actions outputs

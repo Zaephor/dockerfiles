@@ -351,6 +351,14 @@ create_manifest() {
   info "Manifest tag: $manifest_tag"
   info "Source digests: ${digest_args[*]}"
 
+  # Debug: Show annotation args
+  info "Annotation args count: ${#annotation_args[@]}"
+  if [ ${#annotation_args[@]} -gt 0 ]; then
+    for i in "${!annotation_args[@]}"; do
+      info "  annotation_args[$i]='${annotation_args[$i]}'"
+    done
+  fi
+
   # Build command with or without annotations to avoid empty string expansion
   local buildx_cmd=(docker buildx imagetools create -t "$manifest_tag")
 
@@ -360,6 +368,9 @@ create_manifest() {
   fi
 
   buildx_cmd+=("${digest_args[@]}")
+
+  # Debug: Show full command
+  info "Full command: ${buildx_cmd[*]}"
 
   if "${buildx_cmd[@]}"; then
     info "Manifest created successfully: $manifest_tag"
