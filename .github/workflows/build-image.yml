@@ -93,6 +93,7 @@ jobs:
     timeout-minutes: 5
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
+      expanded-matrix: ${{ steps.expand-matrix.outputs.expanded-matrix }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -228,6 +229,28 @@ jobs:
 
           ./.github/scripts/generate-matrix.sh "${GENERATE_MATRIX_ARGS[@]}"
 
+      - name: Expand matrix for architecture builds
+        id: expand-matrix
+        run: |
+          # Read the matrix output from previous step
+          MATRIX_OUTPUT=$(cat $GITHUB_OUTPUT | grep '^matrix=' | cut -d'=' -f2-)
+
+          # Expand each image entry to create separate entries for each architecture
+          EXPANDED=$(echo "$MATRIX_OUTPUT" | jq -c '
+            .image | map(
+              . as $img |
+              (.architectures // ["amd64", "arm64"]) | map({
+                image: $img,
+                arch: .,
+                platform: (if . == "amd64" then "linux/amd64" elif . == "arm64" then "linux/arm64" else "linux/\(.)" end),
+                "runs-on": (if . == "amd64" then "ubuntu-latest" elif . == "arm64" then "ubuntu-24.04-arm" else "ubuntu-latest" end)
+              })
+            ) | flatten | {config: .}
+          ')
+
+          echo "expanded-matrix=$EXPANDED" >> $GITHUB_OUTPUT
+          echo "Expanded matrix: $EXPANDED"
+
       - name: Determine tags to update
         if: github.event.inputs.rebuild_mode == 'true'
         id: rebuild-tags
@@ -294,22 +317,13 @@ jobs:
           log_notice "SYSTEM" "DRY_RUN" "Dry-run completed: $IMAGE_COUNT images would build"
 
   build-arch:
-    name: Build ${{ matrix.image.name }}:${{ matrix.image.variant }} (${{ matrix.arch }})
+    name: Build ${{ matrix.config.image.name }}:${{ matrix.config.image.variant }} (${{ matrix.config.arch }})
     needs: determine-changes
-    runs-on: ${{ matrix.runs-on }}
+    runs-on: ${{ matrix.config['runs-on'] }}
     timeout-minutes: 15
     if: needs.determine-changes.outputs.matrix != '{"image":[]}' && github.event.inputs.dry_run != 'true'
     strategy:
-      matrix:
-        image: ${{ fromJson(needs.determine-changes.outputs.matrix).image }}
-        arch: ${{ matrix.image.architectures }}
-        include:
-          - arch: amd64
-            platform: linux/amd64
-            runs-on: ubuntu-latest
-          - arch: arm64
-            platform: linux/arm64
-            runs-on: ubuntu-24.04-arm
+      matrix: ${{ fromJson(needs.determine-changes.outputs.expanded-matrix) }}
       fail-fast: false
     continue-on-error: true
     permissions:
@@ -326,7 +340,7 @@ jobs:
           start_time=$(date +%s)
           echo "start=$start_time" >> $GITHUB_OUTPUT
 
-          log_structured "${{ matrix.image.name }}" "${{ matrix.arch }}" "BUILD_START" "Starting build for version ${{ matrix.image.version }}"
+          log_structured "${{ matrix.config.image.name }}" "${{ matrix.config.arch }}" "BUILD_START" "Starting build for version ${{ matrix.config.image.version }}"
 
       - name: Checkout code
         uses: actions/checkout@v4
@@ -349,8 +363,8 @@ jobs:
 
           # Repository name in GHCR format
           GHCR_REPO="${{ github.repository }}"
-          IMAGE_NAME="${{ matrix.image.name }}"
-          ARCH="${{ matrix.arch }}"
+          IMAGE_NAME="${{ matrix.config.image.name }}"
+          ARCH="${{ matrix.config.arch }}"
 
           # Image repository without tag (for push-by-digest)
           IMAGE_REPO="ghcr.io/${GHCR_REPO}/${IMAGE_NAME}"
@@ -361,7 +375,7 @@ jobs:
           echo "image_repo=${IMAGE_REPO}" >> $GITHUB_OUTPUT
           echo "cache_tag=${CACHE_TAG}" >> $GITHUB_OUTPUT
 
-          log_structured "${{ matrix.image.name }}" "${{ matrix.arch }}" "BUILD_CONFIG" "Image: ${IMAGE_NAME}, Version: ${{ matrix.image.version }}, Platform: ${{ matrix.platform }}, Reason: ${{ matrix.image.reason }}"
+          log_structured "${{ matrix.config.image.name }}" "${{ matrix.config.arch }}" "BUILD_CONFIG" "Image: ${IMAGE_NAME}, Version: ${{ matrix.config.image.version }}, Platform: ${{ matrix.config.platform }}, Reason: ${{ matrix.config.image.reason }}"
 
       - name: Build and push image by digest
         id: build
@@ -372,15 +386,15 @@ jobs:
           retry_wait_seconds: 30
           command: |
             docker buildx build \
-              --platform ${{ matrix.platform }} \
-              --file ${{ matrix.image.dockerfile }} \
-              --cache-from type=gha,scope=buildx-${{ matrix.image.name }}-${{ matrix.arch }}-${{ matrix.image.variant }} \
-              --cache-from type=registry,ref=${{ steps.meta.outputs.cache_tag }}-${{ matrix.image.variant }} \
-              --cache-to type=gha,mode=max,scope=buildx-${{ matrix.image.name }}-${{ matrix.arch }}-${{ matrix.image.variant }} \
-              --cache-to type=registry,ref=${{ steps.meta.outputs.cache_tag }}-${{ matrix.image.variant }},mode=max \
+              --platform ${{ matrix.config.platform }} \
+              --file ${{ matrix.config.image.dockerfile }} \
+              --cache-from type=gha,scope=buildx-${{ matrix.config.image.name }}-${{ matrix.config.arch }}-${{ matrix.config.image.variant }} \
+              --cache-from type=registry,ref=${{ steps.meta.outputs.cache_tag }}-${{ matrix.config.image.variant }} \
+              --cache-to type=gha,mode=max,scope=buildx-${{ matrix.config.image.name }}-${{ matrix.config.arch }}-${{ matrix.config.image.variant }} \
+              --cache-to type=registry,ref=${{ steps.meta.outputs.cache_tag }}-${{ matrix.config.image.variant }},mode=max \
               --metadata-file /tmp/build-metadata.json \
               --output type=image,name=${{ steps.meta.outputs.image_repo }},push-by-digest=true,name-canonical=true \
-              ${{ matrix.image.name }}
+              ${{ matrix.config.image.name }}
 
       - name: Retry push if registry temporarily unavailable
         id: push-with-retry
@@ -392,8 +406,8 @@ jobs:
 
           # Prepare image repository for push validation
           IMAGE_REPO="${{ steps.meta.outputs.image_repo }}"
-          ARCH="${{ matrix.arch }}"
-          IMAGE_NAME="${{ matrix.image.name }}"
+          ARCH="${{ matrix.config.arch }}"
+          IMAGE_NAME="${{ matrix.config.image.name }}"
           BUILD_METADATA="/tmp/build-metadata.json"
 
           # Extract digest from buildx metadata for push verification
@@ -459,7 +473,7 @@ jobs:
 
           # Validate digest format
           if [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
-            log_error "${{ matrix.image.name }}" "${{ matrix.arch }}" "DIGEST_EXPORT" "Invalid digest format: $digest"
+            log_error "${{ matrix.config.image.name }}" "${{ matrix.config.arch }}" "DIGEST_EXPORT" "Invalid digest format: $digest"
             exit 1
           fi
 
@@ -471,9 +485,9 @@ jobs:
 
           echo "digest=${digest}" >> $GITHUB_OUTPUT
           echo "retry_attempts=${retry_attempts}" >> $GITHUB_OUTPUT
-          echo "${digest}" > /tmp/digests/${{ matrix.arch }}.txt
+          echo "${digest}" > /tmp/digests/${{ matrix.config.arch }}.txt
 
-          log_structured "${{ matrix.image.name }}" "${{ matrix.arch }}" "DIGEST_EXPORT" "Captured digest: ${digest:0:12}... (retries: $retry_attempts)"
+          log_structured "${{ matrix.config.image.name }}" "${{ matrix.config.arch }}" "DIGEST_EXPORT" "Captured digest: ${digest:0:12}... (retries: $retry_attempts)"
 
       - name: Calculate cache hit rate and image metrics
         id: metrics
@@ -497,7 +511,7 @@ jobs:
 
           echo "cache_hit_rate=${CACHE_HIT_RATE}" >> $GITHUB_OUTPUT
 
-          log_structured "${{ matrix.image.name }}" "${{ matrix.arch }}" "METRICS" "Cache metrics calculated (cache_hit_rate: ${CACHE_HIT_RATE})"
+          log_structured "${{ matrix.config.image.name }}" "${{ matrix.config.arch }}" "METRICS" "Cache metrics calculated (cache_hit_rate: ${CACHE_HIT_RATE})"
 
       - name: Capture image size from manifest
         id: image-size
@@ -523,17 +537,17 @@ jobs:
 
           if [[ "${IMAGE_SIZE}" != "null" ]]; then
             SIZE_HUMAN=$(format_size_human "$IMAGE_SIZE")
-            log_structured "${{ matrix.image.name }}" "${{ matrix.arch }}" "IMAGE_SIZE" "Size: ${SIZE_HUMAN}"
+            log_structured "${{ matrix.config.image.name }}" "${{ matrix.config.arch }}" "IMAGE_SIZE" "Size: ${SIZE_HUMAN}"
           else
-            log_notice "${{ matrix.image.name }}" "${{ matrix.arch }}" "IMAGE_SIZE" "Size unavailable (will be calculated on next build for comparison)"
+            log_notice "${{ matrix.config.image.name }}" "${{ matrix.config.arch }}" "IMAGE_SIZE" "Size unavailable (will be calculated on next build for comparison)"
           fi
 
       - name: Upload digest artifact
         if: steps.build.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
-          name: digest-${{ matrix.image.name }}-${{ matrix.image.variant }}-${{ matrix.arch }}
-          path: /tmp/digests/${{ matrix.arch }}.txt
+          name: digest-${{ matrix.config.image.name }}-${{ matrix.config.image.variant }}-${{ matrix.config.arch }}
+          path: /tmp/digests/${{ matrix.config.arch }}.txt
           retention-days: 1
 
       - name: Record build status
@@ -544,20 +558,20 @@ jobs:
 
           # Record explicit build status for manifest coordination
           mkdir -p /tmp/status
-          echo "${{ steps.build.outcome }}" > /tmp/status/${{ matrix.arch }}.txt
+          echo "${{ steps.build.outcome }}" > /tmp/status/${{ matrix.config.arch }}.txt
 
           if [ "${{ steps.build.outcome }}" = "success" ]; then
-            log_structured "${{ matrix.image.name }}" "${{ matrix.arch }}" "BUILD_STATUS" "success"
+            log_structured "${{ matrix.config.image.name }}" "${{ matrix.config.arch }}" "BUILD_STATUS" "success"
           else
-            log_warning "${{ matrix.image.name }}" "${{ matrix.arch }}" "BUILD_STATUS" "failed"
+            log_warning "${{ matrix.config.image.name }}" "${{ matrix.config.arch }}" "BUILD_STATUS" "failed"
           fi
 
       - name: Upload status artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: status-${{ matrix.image.name }}-${{ matrix.image.variant }}-${{ matrix.arch }}
-          path: /tmp/status/${{ matrix.arch }}.txt
+          name: status-${{ matrix.config.image.name }}-${{ matrix.config.image.variant }}-${{ matrix.config.arch }}
+          path: /tmp/status/${{ matrix.config.arch }}.txt
           retention-days: 1
 
       - name: Record build end time and duration
@@ -576,11 +590,11 @@ jobs:
           echo "end=${end}" >> $GITHUB_OUTPUT
           echo "duration=${duration}" >> $GITHUB_OUTPUT
 
-          log_structured "${{ matrix.image.name }}" "${{ matrix.arch }}" "BUILD_END" "Build completed in ${minutes}m ${seconds}s"
+          log_structured "${{ matrix.config.image.name }}" "${{ matrix.config.arch }}" "BUILD_END" "Build completed in ${minutes}m ${seconds}s"
 
           # Performance validation: Warn if build took >10 minutes
           if [ ${duration} -gt 600 ]; then
-            log_warning "${{ matrix.image.name }}" "${{ matrix.arch }}" "PERFORMANCE" "Build duration (${minutes}m ${seconds}s) exceeded 10 minute target"
+            log_warning "${{ matrix.config.image.name }}" "${{ matrix.config.arch }}" "PERFORMANCE" "Build duration (${minutes}m ${seconds}s) exceeded 10 minute target"
           fi
 
       - name: Log build summary
@@ -590,25 +604,25 @@ jobs:
           source .github/scripts/lib/logging.sh
 
           # Log build summary with structured format
-          log_structured "${{ matrix.image.name }}" "${{ matrix.arch }}" "BUILD_SUMMARY" "Repository: ${{ github.repository }}, Commit: ${{ github.sha }}, Branch: ${{ github.ref_name }}"
-          log_structured "${{ matrix.image.name }}" "${{ matrix.arch }}" "BUILD_SUMMARY" "Build Reason: ${{ matrix.image.reason }}, Runner: ${{ matrix.runs-on }}"
+          log_structured "${{ matrix.config.image.name }}" "${{ matrix.config.arch }}" "BUILD_SUMMARY" "Repository: ${{ github.repository }}, Commit: ${{ github.sha }}, Branch: ${{ github.ref_name }}"
+          log_structured "${{ matrix.config.image.name }}" "${{ matrix.config.arch }}" "BUILD_SUMMARY" "Build Reason: ${{ matrix.config.image.reason }}, Runner: ${{ matrix.runs-on }}"
 
           DURATION=${{ steps.end-time.outputs.duration }}
           MINUTES=$((DURATION / 60))
           SECONDS=$((DURATION % 60))
 
-          log_structured "${{ matrix.image.name }}" "${{ matrix.arch }}" "BUILD_SUMMARY" "Status: ${{ steps.build.outcome }}, Duration: ${MINUTES}m ${SECONDS}s"
+          log_structured "${{ matrix.config.image.name }}" "${{ matrix.config.arch }}" "BUILD_SUMMARY" "Status: ${{ steps.build.outcome }}, Duration: ${MINUTES}m ${SECONDS}s"
 
           if [ "${{ steps.build.outcome }}" = "success" ]; then
             DIGEST_SHORT="${{ steps.push.outputs.digest }}"
             DIGEST_SHORT="${DIGEST_SHORT:0:12}"
-            log_notice "${{ matrix.image.name }}" "${{ matrix.arch }}" "BUILD_SUCCESS" "Digest: ${DIGEST_SHORT}..."
+            log_notice "${{ matrix.config.image.name }}" "${{ matrix.config.arch }}" "BUILD_SUCCESS" "Digest: ${DIGEST_SHORT}..."
           fi
 
           if [ $DURATION -lt 600 ]; then
-            log_notice "${{ matrix.image.name }}" "${{ matrix.arch }}" "PERFORMANCE" "Build completed within target (<10 minutes)"
+            log_notice "${{ matrix.config.image.name }}" "${{ matrix.config.arch }}" "PERFORMANCE" "Build completed within target (<10 minutes)"
           else
-            log_warning "${{ matrix.image.name }}" "${{ matrix.arch }}" "PERFORMANCE" "Build exceeded 10 minute target"
+            log_warning "${{ matrix.config.image.name }}" "${{ matrix.config.arch }}" "PERFORMANCE" "Build exceeded 10 minute target"
           fi
 
       - name: Update build history with performance metrics
@@ -619,11 +633,11 @@ jobs:
           source .github/scripts/lib/logging.sh
 
           # Prepare parameters
-          IMAGE_DIR="${{ matrix.image.name }}"
-          VERSION="${{ matrix.image.version }}"
+          IMAGE_DIR="${{ matrix.config.image.name }}"
+          VERSION="${{ matrix.config.image.version }}"
           COMMIT="${{ github.sha }}"
           BRANCH="${{ github.ref_name }}"
-          ARCH="${{ matrix.arch }}"
+          ARCH="${{ matrix.config.arch }}"
           BUILD_STATUS="${{ steps.build.outcome }}"
 
           # Get timestamps and duration from previous steps
@@ -675,11 +689,11 @@ jobs:
           source .github/scripts/lib/logging.sh
           source .github/scripts/lib/history.sh
 
-          IMAGE_DIR="${{ matrix.image.name }}"
-          VERSION="${{ matrix.image.version }}"
+          IMAGE_DIR="${{ matrix.config.image.name }}"
+          VERSION="${{ matrix.config.image.version }}"
           REBUILD_REASON="${{ github.event.inputs.rebuild_reason }}"
           BUILD_STATUS="${{ steps.build.outcome }}"
-          ARCH="${{ matrix.arch }}"
+          ARCH="${{ matrix.config.arch }}"
 
           # Log rebuild completion
           log_structured "$IMAGE_DIR" "$ARCH" "REBUILD" "Rebuild completed: version=$VERSION, reason=$REBUILD_REASON, status=$BUILD_STATUS"
