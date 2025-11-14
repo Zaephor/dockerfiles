@@ -439,10 +439,19 @@ jobs:
             log_structured "$IMAGE_NAME" "$ARCH" "REGISTRY_PUSH" "Registry verification attempt $retry_attempt/$max_retry_attempts"
 
             # Attempt to inspect the pushed image to verify it exists in registry
-            if docker buildx imagetools inspect "${IMAGE_REPO}@${DIGEST}" > /dev/null 2>&1; then
-              log_structured "$IMAGE_NAME" "$ARCH" "REGISTRY_PUSH" "Registry verification succeeded on attempt $retry_attempt"
-              echo "retry_attempts=$((retry_attempt - 1))" >> $GITHUB_OUTPUT
-              exit 0
+            # Show error output on first attempt for debugging
+            if [ $retry_attempt -eq 1 ]; then
+              if docker buildx imagetools inspect "${IMAGE_REPO}@${DIGEST}" 2>&1; then
+                log_structured "$IMAGE_NAME" "$ARCH" "REGISTRY_PUSH" "Registry verification succeeded on attempt $retry_attempt"
+                echo "retry_attempts=$((retry_attempt - 1))" >> $GITHUB_OUTPUT
+                exit 0
+              fi
+            else
+              if docker buildx imagetools inspect "${IMAGE_REPO}@${DIGEST}" > /dev/null 2>&1; then
+                log_structured "$IMAGE_NAME" "$ARCH" "REGISTRY_PUSH" "Registry verification succeeded on attempt $retry_attempt"
+                echo "retry_attempts=$((retry_attempt - 1))" >> $GITHUB_OUTPUT
+                exit 0
+              fi
             fi
 
             if [ $retry_attempt -lt $max_retry_attempts ]; then
