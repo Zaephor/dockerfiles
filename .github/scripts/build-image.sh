@@ -122,45 +122,44 @@ parse_args() {
 build_image() {
   echo "Building image: ${IMAGE_NAME} (${PLATFORM})"
 
-  # Prepare description label if README provided
-  local description_label=""
+  # Build cache scope (unique per image+arch+variant)
+  local cache_scope="buildx-${IMAGE_NAME}-${ARCH}-${VARIANT}"
+
+  # Prepare buildx command as array for proper argument handling
+  local buildx_args=(
+    --platform "$PLATFORM"
+    --file "$DOCKERFILE"
+    --cache-from "type=gha,scope=${cache_scope}"
+    --cache-from "type=registry,ref=${CACHE_TAG}-${VARIANT}"
+    --cache-to "type=gha,mode=max,scope=${cache_scope}"
+    --cache-to "type=registry,ref=${CACHE_TAG}-${VARIANT},mode=max"
+    --label "org.opencontainers.image.source=${SOURCE_URL}"
+    --label "org.opencontainers.image.revision=${REVISION}"
+  )
+
+  # Add description label if README provided
   if [[ -n "$README_B64" ]]; then
     # Decode base64 README content
     local readme_content
     if readme_content=$(echo "$README_B64" | base64 -d 2>/dev/null); then
-      # Convert to single line and escape for JSON (OCI labels are JSON strings)
-      # Only take first 1000 chars to avoid label size limits
+      # Convert to single line, collapse multiple spaces, truncate to 1000 chars
       local description
-      description=$(echo "$readme_content" | head -c 1000 | tr '\n' ' ' | sed 's/  */ /g')
+      description=$(echo "$readme_content" | tr '\n' ' ' | sed 's/  */ /g' | head -c 1000)
 
-      # Write to temporary file to avoid shell escaping issues
-      local label_file
-      label_file=$(mktemp)
-      trap "rm -f '$label_file'" EXIT
-
-      # OCI label format: key=value
-      echo "org.opencontainers.image.description=$description" > "$label_file"
-      description_label="--label-file $label_file"
+      # Add as label (array handles quoting automatically)
+      buildx_args+=(--label "org.opencontainers.image.description=${description}")
     fi
   fi
 
-  # Build cache scope (unique per image+arch+variant)
-  local cache_scope="buildx-${IMAGE_NAME}-${ARCH}-${VARIANT}"
+  # Add final args
+  buildx_args+=(
+    --metadata-file /tmp/build-metadata.json
+    --output "type=image,name=${IMAGE_REPO},push-by-digest=true,name-canonical=true,push=true"
+    "$IMAGE_NAME"
+  )
 
   # Execute docker buildx build
-  docker buildx build \
-    --platform "$PLATFORM" \
-    --file "$DOCKERFILE" \
-    --cache-from "type=gha,scope=${cache_scope}" \
-    --cache-from "type=registry,ref=${CACHE_TAG}-${VARIANT}" \
-    --cache-to "type=gha,mode=max,scope=${cache_scope}" \
-    --cache-to "type=registry,ref=${CACHE_TAG}-${VARIANT},mode=max" \
-    --label "org.opencontainers.image.source=${SOURCE_URL}" \
-    --label "org.opencontainers.image.revision=${REVISION}" \
-    ${description_label} \
-    --metadata-file /tmp/build-metadata.json \
-    --output "type=image,name=${IMAGE_REPO},push-by-digest=true,name-canonical=true,push=true" \
-    "$IMAGE_NAME"
+  docker buildx build "${buildx_args[@]}"
 
   echo "Build completed successfully"
   return 0
