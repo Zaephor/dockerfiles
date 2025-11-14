@@ -336,7 +336,8 @@ create_manifest() {
       # Only add annotation if description is non-empty after processing
       if [[ -n "$description" ]]; then
         info "Adding annotation with description"
-        annotation_args+=(--annotation "org.opencontainers.image.description=${description}")
+        # Add as single argument to avoid shell interpretation of special chars like #
+        annotation_args+=("--annotation=org.opencontainers.image.description=${description}")
       else
         warn "Description is empty after processing - skipping annotation"
       fi
