@@ -115,8 +115,8 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Validate required parameters
-if [ -z "$IMAGE_DIR" ] || [ -z "$VERSION" ] || [ -z "$COMMIT" ] || [ -z "$BRANCH" ] || [ -z "$ARCH" ] || [ -z "$BUILD_STATUS" ]; then
+# Validate required parameters (VERSION can be empty)
+if [ -z "$IMAGE_DIR" ] || [ -z "$COMMIT" ] || [ -z "$BRANCH" ] || [ -z "$ARCH" ] || [ -z "$BUILD_STATUS" ]; then
     echo "Error: Missing required parameters" >&2
     exit 1
 fi
