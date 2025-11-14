@@ -76,8 +76,12 @@ dockerd \
     > "$DOCKER_LOG" 2>&1 &
 
 # Wait for Docker to be ready (with timeout)
+# Use docker.real if available (avoids wrapper recursion), otherwise use docker
+DOCKER_BIN="/usr/bin/docker.real"
+[ ! -f "$DOCKER_BIN" ] && DOCKER_BIN="docker"
+
 timeout=30
-while ! docker info >/dev/null 2>&1; do
+while ! "$DOCKER_BIN" info >/dev/null 2>&1; do
     sleep 1
     timeout=$((timeout - 1))
     if [ $timeout -le 0 ]; then
