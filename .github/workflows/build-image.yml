@@ -376,15 +376,15 @@ jobs:
           CACHE_TAG="ghcr.io/${GHCR_REPO}/buildcache:${IMAGE_NAME}-${ARCH}"
 
           # Read image README for package description (if exists)
-          IMAGE_DESCRIPTION=""
+          # Use base64 encoding to safely pass through GitHub Actions outputs
+          IMAGE_DESCRIPTION_B64=""
           if [ -f "${IMAGE_NAME}/README.md" ]; then
-            # Read README and escape for use in label (single line, quotes escaped)
-            IMAGE_DESCRIPTION=$(cat "${IMAGE_NAME}/README.md" | head -100 | tr '\n' ' ' | sed 's/"/\\"/g')
+            IMAGE_DESCRIPTION_B64=$(cat "${IMAGE_NAME}/README.md" | base64 -w0)
           fi
 
           echo "image_repo=${IMAGE_REPO}" >> $GITHUB_OUTPUT
           echo "cache_tag=${CACHE_TAG}" >> $GITHUB_OUTPUT
-          echo "image_description=${IMAGE_DESCRIPTION}" >> $GITHUB_OUTPUT
+          echo "image_description_b64=${IMAGE_DESCRIPTION_B64}" >> $GITHUB_OUTPUT
 
           log_structured "${{ matrix.config.image.name }}" "${{ matrix.config.arch }}" "BUILD_CONFIG" "Image: ${IMAGE_NAME}, Version: ${{ matrix.config.image.version }}, Platform: ${{ matrix.config.platform }}, Reason: ${{ matrix.config.image.reason }}"
 
@@ -396,10 +396,12 @@ jobs:
           max_attempts: 2
           retry_wait_seconds: 30
           command: |
-            # Build label args (conditional based on metadata availability)
+            # Decode README from base64 and prepare label args
             LABEL_ARGS=""
-            if [ -n "${{ steps.meta.outputs.image_description }}" ]; then
-              LABEL_ARGS="--label org.opencontainers.image.description=\"${{ steps.meta.outputs.image_description }}\""
+            if [ -n "${{ steps.meta.outputs.image_description_b64 }}" ]; then
+              # Decode base64, convert to single line, escape quotes and backslashes
+              IMAGE_DESC=$(echo "${{ steps.meta.outputs.image_description_b64 }}" | base64 -d | tr '\n' ' ' | sed 's/\\/\\\\/g' | sed 's/"/\\"/g')
+              LABEL_ARGS="--label org.opencontainers.image.description=\"${IMAGE_DESC}\""
             fi
 
             docker buildx build \
