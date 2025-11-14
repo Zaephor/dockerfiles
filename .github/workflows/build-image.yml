@@ -233,12 +233,11 @@ jobs:
 
       - name: Expand matrix for architecture builds
         id: expand-matrix
+        env:
+          MATRIX_JSON: ${{ steps.set-matrix.outputs.matrix }}
         run: |
-          # Read the matrix output from previous step
-          MATRIX_OUTPUT=$(cat $GITHUB_OUTPUT | grep '^matrix=' | cut -d'=' -f2-)
-
           # Expand each image entry to create separate entries for each architecture
-          EXPANDED=$(echo "$MATRIX_OUTPUT" | jq -c '
+          EXPANDED=$(echo "$MATRIX_JSON" | jq -c '
             .image | map(
               . as $img |
               (.architectures // ["amd64", "arm64"]) | map({
