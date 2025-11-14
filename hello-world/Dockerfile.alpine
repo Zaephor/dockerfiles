@@ -1,8 +1,8 @@
-FROM alpine:3.18-slim
+FROM alpine:3.18
 
 # Alpine variant: ultra-lightweight hello-world
 RUN echo '#!/bin/sh' > /usr/local/bin/hello && \
-    echo 'echo "Hello from Alpine (slim) - Version 1.0.0"' >> /usr/local/bin/hello && \
+    echo 'echo "Hello from Alpine - Version 1.0.0"' >> /usr/local/bin/hello && \
     echo 'echo "Architecture: $(uname -m)"' >> /usr/local/bin/hello && \
     chmod +x /usr/local/bin/hello
 
