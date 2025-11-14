@@ -190,9 +190,9 @@ jobs:
         env:
           MATRIX_JSON: ${{ steps.set-matrix.outputs.matrix }}
         run: |
-          # shellcheck disable=SC2153
           source .github/scripts/lib/matrix-utils.sh
 
+          # shellcheck disable=SC2153
           EXPANDED=$(matrix_expand_for_architectures "$MATRIX_JSON")
 
           echo "expanded-matrix=$EXPANDED" >> "$GITHUB_OUTPUT"
@@ -226,43 +226,8 @@ jobs:
       - name: Generate dry-run summary report
         if: github.event.inputs.dry_run == 'true'
         run: |
-          # shellcheck disable=SC2129
-          # Source logging library
-          source .github/scripts/lib/logging.sh
-
-          MATRIX="${{ steps.set-matrix.outputs.matrix }}"
-
-          echo "## Dry-Run Analysis Report" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-
-          # Check if matrix is empty
-          if [ "$MATRIX" = '{"image":[]}' ] || [ -z "$MATRIX" ]; then
-            echo "✓ **No images require building**" >> "$GITHUB_STEP_SUMMARY"
-            echo "" >> "$GITHUB_STEP_SUMMARY"
-            echo "All images are up to date. No changes detected." >> "$GITHUB_STEP_SUMMARY"
-            log_notice "SYSTEM" "-" "DRY_RUN" "Dry-run completed: No images require building"
-            exit 0
-          fi
-
-          # Parse and display images that would be built
-          IMAGE_COUNT=$(echo "$MATRIX" | jq '.image | length')
-          echo "📊 **Images to Build: $IMAGE_COUNT**" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-
-          echo "| Image | Version | Reason |" >> "$GITHUB_STEP_SUMMARY"
-          echo "|-------|---------|--------|" >> "$GITHUB_STEP_SUMMARY"
-
-          # Extract and format each image
-          echo "$MATRIX" | jq -r '.image[] | "| \(.name) | \(.version) | \(.reason) |"' >> "$GITHUB_STEP_SUMMARY"
-
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "### Dry-Run Details" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Mode**: Dry-run (no builds will execute)" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Timestamp**: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Branch**: ${{ github.ref_name }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Commit**: ${{ github.sha }}" >> "$GITHUB_STEP_SUMMARY"
-
-          log_notice "SYSTEM" "-" "DRY_RUN" "Dry-run completed: $IMAGE_COUNT images would build"
+          .github/scripts/generate-dryrun-report.sh \
+            --matrix "${{ steps.set-matrix.outputs.matrix }}"
 
   build-arch:
     name: Build ${{ matrix.config.image.name }}:${{ matrix.config.image.variant }} (${{ matrix.config.arch }})
@@ -356,71 +321,11 @@ jobs:
         id: push-with-retry
         if: steps.build.outcome == 'success'
         run: |
-          # Source retry logic library
-          source .github/scripts/lib/retry-logic.sh
-          source .github/scripts/lib/logging.sh
-
-          # Prepare image repository for push validation
-          IMAGE_REPO="${{ steps.meta.outputs.image_repo }}"
-          ARCH="${{ matrix.config.arch }}"
-          IMAGE_NAME="${{ matrix.config.image.name }}"
-          BUILD_METADATA="/tmp/build-metadata.json"
-
-          # Extract digest from buildx metadata for push verification
-          if [ ! -f "$BUILD_METADATA" ]; then
-            log_error "$IMAGE_NAME" "$ARCH" "REGISTRY_PUSH" "Build metadata file not found: $BUILD_METADATA"
-            exit 1
-          fi
-
-          # Get digest to track successful push
-          DIGEST=$(jq -r '."containerimage.digest"' "$BUILD_METADATA")
-          if [[ ! "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
-            log_error "$IMAGE_NAME" "$ARCH" "REGISTRY_PUSH" "Invalid digest format: $DIGEST"
-            exit 1
-          fi
-
-          log_structured "$IMAGE_NAME" "$ARCH" "REGISTRY_PUSH" "Verifying push to registry (digest: ${DIGEST:0:12}...)"
-
-          # Verify push was successful by checking registry
-          # We use docker buildx imagetools inspect to verify the image exists in registry
-          # This is a lightweight verification that can be retried on transient failures
-          retry_attempt=0
-          max_retry_attempts=2
-          retry_delay=30
-
-          while [ $retry_attempt -lt $max_retry_attempts ]; do
-            retry_attempt=$((retry_attempt + 1))
-            log_structured "$IMAGE_NAME" "$ARCH" "REGISTRY_PUSH" "Registry verification attempt $retry_attempt/$max_retry_attempts"
-
-            # Attempt to inspect the pushed image to verify it exists in registry
-            # Show error output on first attempt for debugging
-            if [ $retry_attempt -eq 1 ]; then
-              if docker buildx imagetools inspect "${IMAGE_REPO}@${DIGEST}" 2>&1; then
-                log_structured "$IMAGE_NAME" "$ARCH" "REGISTRY_PUSH" "Registry verification succeeded on attempt $retry_attempt"
-                echo "retry_attempts=$((retry_attempt - 1))" >> "$GITHUB_OUTPUT"
-                exit 0
-              fi
-            else
-              if docker buildx imagetools inspect "${IMAGE_REPO}@${DIGEST}" > /dev/null 2>&1; then
-                log_structured "$IMAGE_NAME" "$ARCH" "REGISTRY_PUSH" "Registry verification succeeded on attempt $retry_attempt"
-                echo "retry_attempts=$((retry_attempt - 1))" >> "$GITHUB_OUTPUT"
-                exit 0
-              fi
-            fi
-
-            if [ $retry_attempt -lt $max_retry_attempts ]; then
-              log_warning "$IMAGE_NAME" "$ARCH" "REGISTRY_PUSH" "Registry verification failed, retrying in ${retry_delay}s..."
-              sleep "$retry_delay"
-              retry_delay=$((retry_delay * 2))
-              if [ $retry_delay -gt 300 ]; then
-                retry_delay=300
-              fi
-            fi
-          done
-
-          log_error "$IMAGE_NAME" "$ARCH" "REGISTRY_PUSH" "Registry verification exhausted all $max_retry_attempts attempts"
-          echo "retry_attempts=$((max_retry_attempts - 1))" >> "$GITHUB_OUTPUT"
-          exit 1
+          .github/scripts/verify-registry-push.sh \
+            --image-repo "${{ steps.meta.outputs.image_repo }}" \
+            --arch "${{ matrix.config.arch }}" \
+            --image-name "${{ matrix.config.image.name }}" \
+            --build-metadata "/tmp/build-metadata.json"
 
       - name: Export digest
         id: push
@@ -470,7 +375,7 @@ jobs:
           # For now, estimate: if build < 50% of previous time, assume high cache hit
 
           # TODO: Implement historical duration comparison when end-time step is available
-          # PREVIOUS_DURATION=${{ steps.end-time.outputs.duration }}
+          # PREVIOUS_DURATION=steps.end-time.outputs.duration
 
           # Estimate cache hit rate based on build efficiency
           # This is a simplified calculation - more precise would require buildx logs
@@ -613,23 +518,6 @@ jobs:
       - name: Update build history with performance metrics
         if: always()
         run: |
-          # Source libraries
-          source .github/scripts/lib/history.sh
-          source .github/scripts/lib/logging.sh
-
-          # Prepare parameters
-          IMAGE_DIR="${{ matrix.config.image.name }}"
-          VERSION="${{ matrix.config.image.version }}"
-          COMMIT="${{ github.sha }}"
-          BRANCH="${{ github.ref_name }}"
-          ARCH="${{ matrix.config.arch }}"
-          BUILD_STATUS="${{ steps.build.outcome }}"
-
-          # Get timestamps and duration from previous steps
-          BUILD_START="${{ steps.start-time.outputs.start }}"
-          BUILD_END="${{ steps.end-time.outputs.end }}"
-          DURATION="${{ steps.end-time.outputs.duration }}"
-
           # Get digest if build succeeded
           BUILD_DIGEST=""
           if [ "${{ steps.build.outcome }}" = "success" ]; then
@@ -642,31 +530,20 @@ jobs:
             RETRY_COUNT=0
           fi
 
-          # Get performance metrics from previous steps (Sprint 13)
-          CACHE_HIT_RATE="${{ steps.metrics.outputs.cache_hit_rate }}"
-          IMAGE_SIZE="${{ steps.image-size.outputs.image_size }}"
-
-          # Graceful degradation: Use null if timestamps or duration missing
-          if [ -z "$BUILD_START" ] || [ -z "$BUILD_END" ] || [ -z "$DURATION" ]; then
-            log_warning "$IMAGE_DIR" "$ARCH" "HISTORY" "Timestamps missing or invalid (graceful degradation)"
-            DURATION=""
-            BUILD_START=""
-            BUILD_END=""
-          fi
-
-          # Call append_build_record with all metrics including retry count, cache_hit_rate, and image_size
-          append_build_record "$IMAGE_DIR" "$VERSION" "$COMMIT" "$BRANCH" "$ARCH" "$BUILD_STATUS" \
-            --start "$BUILD_START" \
-            --end "$BUILD_END" \
-            --duration "$DURATION" \
+          .github/scripts/record-build-history.sh \
+            --image-dir "${{ matrix.config.image.name }}" \
+            --version "${{ matrix.config.image.version }}" \
+            --commit "${{ github.sha }}" \
+            --branch "${{ github.ref_name }}" \
+            --arch "${{ matrix.config.arch }}" \
+            --build-status "${{ steps.build.outcome }}" \
+            --build-start "${{ steps.start-time.outputs.start }}" \
+            --build-end "${{ steps.end-time.outputs.end }}" \
+            --duration "${{ steps.end-time.outputs.duration }}" \
             --digest "$BUILD_DIGEST" \
             --retry-count "$RETRY_COUNT" \
-            --cache-hit-rate "$CACHE_HIT_RATE" \
-            --image-size "$IMAGE_SIZE" || {
-            log_warning "$IMAGE_DIR" "$ARCH" "HISTORY" "Failed to update history file (non-fatal, continuing)"
-          }
-
-          log_structured "$IMAGE_DIR" "$ARCH" "HISTORY" "History recorded with retry_count=$RETRY_COUNT, cache_hit_rate=$CACHE_HIT_RATE, image_size=$IMAGE_SIZE, build_status=$BUILD_STATUS"
+            --cache-hit-rate "${{ steps.metrics.outputs.cache_hit_rate }}" \
+            --image-size "${{ steps.image-size.outputs.image_size }}"
 
       - name: Prepare history artifact
         if: always()
@@ -753,70 +630,12 @@ jobs:
       - name: Verify tags in registry (T024)
         if: always()
         run: |
-          # shellcheck disable=SC2001,SC2034
-          echo "Verifying published tags in registry..."
-          echo "========================================="
-
-          # Repository name (lowercase required by Docker)
-          GHCR_REPO="${{ github.repository }}"
-          GHCR_REPO=$(echo "$GHCR_REPO" | tr '[:upper:]' '[:lower:]')
-          COMMIT_SHA="${{ github.sha }}"
-          BRANCH_NAME="${{ github.ref_name }}"
-          BRANCH_TAG="$(echo "${BRANCH_NAME}" | sed 's/[^a-zA-Z0-9.-]/-/g')"
-
-          # Find all image-variant pairs that were processed
-          verification_failed=0
-          for amd64_artifact in /tmp/digests/digest-*-amd64; do
-            if [ -d "$amd64_artifact" ]; then
-              artifact_name=$(basename "$amd64_artifact")
-              if [[ "$artifact_name" =~ ^digest-(.+)-amd64$ ]]; then
-                image_variant="${BASH_REMATCH[1]}"
-
-                # Extract image name from the variant pair
-                # Check if this matches a directory in repo root
-                image_name=""
-                for dir in "${GITHUB_WORKSPACE}"/*/; do
-                  dir_name=$(basename "$dir")
-                  if [[ "$image_variant" == "$dir_name"* ]]; then
-                    image_name="$dir_name"
-                    break
-                  fi
-                done
-
-                # Fallback parsing if no dir matched
-                if [ -z "$image_name" ]; then
-                  if [[ "$image_variant" =~ ^(.+)-([a-z0-9-]+)$ ]]; then
-                    image_name="${BASH_REMATCH[1]}"
-                  else
-                    image_name="$image_variant"
-                  fi
-                fi
-
-                image_repo="ghcr.io/${GHCR_REPO}/${image_name}"
-
-                # Verify manifest exists for commit SHA tag using docker buildx imagetools inspect
-                echo "Verifying manifest for: ${image_repo}:${COMMIT_SHA}"
-                if docker buildx imagetools inspect "${image_repo}:${COMMIT_SHA}" >/dev/null 2>&1; then
-                  echo "  ✓ PASS: Manifest exists for commit SHA tag"
-                else
-                  echo "  ✗ FAIL: Manifest not found for commit SHA tag"
-                  verification_failed=1
-                fi
-
-                # Verify manifest exists for branch tag using docker buildx imagetools inspect
-                echo "Verifying manifest for: ${image_repo}:${BRANCH_TAG}"
-                if docker buildx imagetools inspect "${image_repo}:${BRANCH_TAG}" >/dev/null 2>&1; then
-                  echo "  ✓ PASS: Manifest exists for branch tag"
-                else
-                  echo "  ✗ FAIL: Manifest not found for branch tag"
-                  verification_failed=1
-                fi
-              fi
-            fi
-          done
-
-          echo ""
-          echo "Registry verification complete (warnings above are normal in local environments)"
+          .github/scripts/verify-registry-tags.sh \
+            --repository "${{ github.repository }}" \
+            --commit-sha "${{ github.sha }}" \
+            --branch-name "${{ github.ref_name }}" \
+            --digests-path "/tmp/digests" \
+            --workspace "${GITHUB_WORKSPACE}"
 
       - name: Create manifest completion summary
         if: always()
@@ -946,81 +765,81 @@ jobs:
 
       - name: Generate workflow summary table
         run: |
-          # shellcheck disable=SC2129
           # Generate workflow summary table for all builds
-          echo "## Workflow Summary" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-
           # Build summary from job statuses
           BUILD_ARCH_RESULT="${{ needs.build-arch.result }}"
           CREATE_MANIFEST_RESULT="${{ needs.create-manifest.result }}"
           DRY_RUN_MODE="${{ github.event.inputs.dry_run }}"
 
-          echo "### Build Status" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Phase | Status |" >> "$GITHUB_STEP_SUMMARY"
-          echo "|-------|--------|" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "## Workflow Summary"
+            echo ""
+            echo "### Build Status"
+            echo ""
+            echo "| Phase | Status |"
+            echo "|-------|--------|"
 
-          if [[ "$DRY_RUN_MODE" == "true" ]]; then
-            echo "| Mode | Dry-Run (no builds) |" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "| Mode | Production |" >> "$GITHUB_STEP_SUMMARY"
-          fi
+            if [[ "$DRY_RUN_MODE" == "true" ]]; then
+              echo "| Mode | Dry-Run (no builds) |"
+            else
+              echo "| Mode | Production |"
+            fi
 
-          case "$BUILD_ARCH_RESULT" in
-            success)
-              echo "| Build (arch) | ✓ Success |" >> "$GITHUB_STEP_SUMMARY"
-              ;;
-            skipped)
-              echo "| Build (arch) | ⊘ Skipped |" >> "$GITHUB_STEP_SUMMARY"
-              ;;
-            failure)
-              echo "| Build (arch) | ✗ Failed |" >> "$GITHUB_STEP_SUMMARY"
-              ;;
-            *)
-              echo "| Build (arch) | ? Unknown |" >> "$GITHUB_STEP_SUMMARY"
-              ;;
-          esac
+            case "$BUILD_ARCH_RESULT" in
+              success)
+                echo "| Build (arch) | ✓ Success |"
+                ;;
+              skipped)
+                echo "| Build (arch) | ⊘ Skipped |"
+                ;;
+              failure)
+                echo "| Build (arch) | ✗ Failed |"
+                ;;
+              *)
+                echo "| Build (arch) | ? Unknown |"
+                ;;
+            esac
 
-          case "$CREATE_MANIFEST_RESULT" in
-            success)
-              echo "| Manifest | ✓ Success |" >> "$GITHUB_STEP_SUMMARY"
-              ;;
-            skipped)
-              echo "| Manifest | ⊘ Skipped |" >> "$GITHUB_STEP_SUMMARY"
-              ;;
-            failure)
-              echo "| Manifest | ✗ Failed |" >> "$GITHUB_STEP_SUMMARY"
-              ;;
-            *)
-              echo "| Manifest | ? Unknown |" >> "$GITHUB_STEP_SUMMARY"
-              ;;
-          esac
+            case "$CREATE_MANIFEST_RESULT" in
+              success)
+                echo "| Manifest | ✓ Success |"
+                ;;
+              skipped)
+                echo "| Manifest | ⊘ Skipped |"
+                ;;
+              failure)
+                echo "| Manifest | ✗ Failed |"
+                ;;
+              *)
+                echo "| Manifest | ? Unknown |"
+                ;;
+            esac
 
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "### Workflow Details" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Repository**: ${{ github.repository }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Branch**: ${{ github.ref_name }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Commit**: ${{ github.sha }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Triggered By**: ${{ github.event_name }}" >> "$GITHUB_STEP_SUMMARY"
+            echo ""
+            echo "### Workflow Details"
+            echo "- **Repository**: ${{ github.repository }}"
+            echo "- **Branch**: ${{ github.ref_name }}"
+            echo "- **Commit**: ${{ github.sha }}"
+            echo "- **Triggered By**: ${{ github.event_name }}"
 
-          if [[ -n "${{ github.event.inputs.image_filter }}" ]]; then
-            echo "- **Image Filter**: ${{ github.event.inputs.image_filter }}" >> "$GITHUB_STEP_SUMMARY"
-          fi
+            if [[ -n "${{ github.event.inputs.image_filter }}" ]]; then
+              echo "- **Image Filter**: ${{ github.event.inputs.image_filter }}"
+            fi
 
-          if [[ -n "${{ github.event.inputs.skip_images }}" ]]; then
-            echo "- **Skip Images**: ${{ github.event.inputs.skip_images }}" >> "$GITHUB_STEP_SUMMARY"
-          fi
+            if [[ -n "${{ github.event.inputs.skip_images }}" ]]; then
+              echo "- **Skip Images**: ${{ github.event.inputs.skip_images }}"
+            fi
 
-          if [[ -n "${{ github.event.inputs.force_rebuild }}" && "${{ github.event.inputs.force_rebuild }}" == "true" ]]; then
-            echo "- **Force Rebuild**: Yes (all images)" >> "$GITHUB_STEP_SUMMARY"
-          fi
+            if [[ -n "${{ github.event.inputs.force_rebuild }}" && "${{ github.event.inputs.force_rebuild }}" == "true" ]]; then
+              echo "- **Force Rebuild**: Yes (all images)"
+            fi
 
-          if [[ -n "${{ github.event.inputs.version_override }}" ]]; then
-            echo "- **Version Overrides**: Yes" >> "$GITHUB_STEP_SUMMARY"
-          fi
+            if [[ -n "${{ github.event.inputs.version_override }}" ]]; then
+              echo "- **Version Overrides**: Yes"
+            fi
 
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "---" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "For detailed logs, see workflow run: [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> "$GITHUB_STEP_SUMMARY"
+            echo ""
+            echo "---"
+            echo ""
+            echo "For detailed logs, see workflow run: [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+          } >> "$GITHUB_STEP_SUMMARY"
