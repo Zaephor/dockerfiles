@@ -69,7 +69,9 @@ jobs:
           # Lint all Dockerfiles in the repository
           find . -name "Dockerfile" -not -path "./.git/*" | while read -r dockerfile; do
             echo "Linting: $dockerfile"
-            docker run --rm -i hadolint/hadolint:latest-alpine < "$dockerfile" || exit 1
+            docker run --rm -i \
+              -v "$PWD/.hadolint.yaml:/.config/hadolint.yaml:ro" \
+              hadolint/hadolint:latest-alpine < "$dockerfile" || exit 1
           done
 
   test:

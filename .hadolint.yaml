@@ -1,0 +1,21 @@
+---
+# Hadolint configuration for dockerfiles project
+# https://github.com/hadolint/hadolint
+
+# Ignore specific rules for example Dockerfiles
+ignored:
+  # DL3008: Pin versions in apt-get install
+  # Example Dockerfiles intentionally avoid version pinning for simplicity
+  - DL3008
+
+  # DL3015: Avoid additional packages by specifying --no-install-recommends
+  # Example Dockerfiles prioritize readability over optimization
+  - DL3015
+
+  # DL3018: Pin versions in apk add
+  # Example Dockerfiles intentionally avoid version pinning for simplicity
+  - DL3018
+
+  # DL4006: Set SHELL option -o pipefail
+  # Some examples use /bin/sh which doesn't support pipefail
+  - DL4006
