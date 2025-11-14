@@ -6,10 +6,10 @@ if ! pgrep -x dockerd > /dev/null; then
     echo "Starting Docker daemon..."
 
     # Start dockerd in the background
+    # Storage driver and other options are configured in /etc/docker/daemon.json
     dockerd \
         --host=unix:///var/run/docker.sock \
         --host=tcp://0.0.0.0:2375 \
-        --storage-driver=overlay2 \
         > /var/log/docker.log 2>&1 &
 
     # Wait for Docker to be ready
