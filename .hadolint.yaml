@@ -19,3 +19,8 @@ ignored:
   # DL4006: Set SHELL option -o pipefail
   # Some examples use /bin/sh which doesn't support pipefail
   - DL4006
+
+  # SC2016: Expressions don't expand in single quotes
+  # False positive - we intentionally use single quotes to write literal
+  # shell expressions that should expand at runtime, not build time
+  - SC2016

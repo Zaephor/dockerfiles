@@ -1,0 +1,20 @@
+# actionlint configuration
+# See https://github.com/rhysd/actionlint/blob/main/docs/config.md
+
+# Configure shellcheck integration
+self-hosted-runner:
+  labels: []
+
+shellcheck:
+  # Ignore info-level and style-level shellcheck issues
+  # SC2153: Possible misspelling (false positive for GitHub Actions env vars)
+  # SC2129: Style suggestion for grouping redirects
+  # SC2001: Style suggestion for parameter expansion over sed
+  # SC2034: Unused variable (false positives due to partial script analysis)
+  enable: true
+  shell-options: ""
+  exclude-ids:
+    - "SC2153"
+    - "SC2129"
+    - "SC2001"
+    - "SC2034"

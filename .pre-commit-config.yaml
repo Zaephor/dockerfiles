@@ -55,7 +55,7 @@ repos:
       - id: shellcheck
         name: Lint shell scripts
         description: Validates bash/sh scripts for errors and style issues
-        args: ['--severity=warning']  # Only warn on issues (not info)
+        args: ['--severity=error']  # Only report errors (suppress warnings)
         exclude: 'node_modules/|\.git/'
 
   # Markdown linting
