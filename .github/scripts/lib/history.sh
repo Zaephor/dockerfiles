@@ -118,8 +118,8 @@ append_build_record() {
     esac
   done
 
-  # Validate required arguments
-  if [[ -z "$image_dir" ]] || [[ -z "$version" ]] || [[ -z "$commit" ]] || \
+  # Validate required arguments (VERSION can be empty)
+  if [[ -z "$image_dir" ]] || [[ -z "$commit" ]] || \
      [[ -z "$branch" ]] || [[ -z "$arch" ]] || [[ -z "$status" ]]; then
     echo "ERROR: Missing required arguments to append_build_record" >&2
     return 1
