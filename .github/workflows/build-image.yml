@@ -395,7 +395,7 @@ jobs:
               --cache-to type=gha,mode=max,scope=buildx-${{ matrix.config.image.name }}-${{ matrix.config.arch }}-${{ matrix.config.image.variant }} \
               --cache-to type=registry,ref=${{ steps.meta.outputs.cache_tag }}-${{ matrix.config.image.variant }},mode=max \
               --metadata-file /tmp/build-metadata.json \
-              --output type=image,name=${{ steps.meta.outputs.image_repo }},push-by-digest=true,name-canonical=true \
+              --output type=image,name=${{ steps.meta.outputs.image_repo }},push-by-digest=true,name-canonical=true,push=true \
               ${{ matrix.config.image.name }}
 
       - name: Retry push if registry temporarily unavailable
