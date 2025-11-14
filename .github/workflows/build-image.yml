@@ -525,6 +525,7 @@ jobs:
           name: digest-${{ steps.artifact-name.outputs.escaped }}-${{ matrix.config.image.variant }}-${{ matrix.config.arch }}
           path: /tmp/digests/${{ matrix.config.arch }}.txt
           retention-days: 1
+          overwrite: true
 
       - name: Record build status
         if: always()
@@ -549,6 +550,7 @@ jobs:
           name: status-${{ steps.artifact-name.outputs.escaped }}-${{ matrix.config.image.variant }}-${{ matrix.config.arch }}
           path: /tmp/status/${{ matrix.config.arch }}.txt
           retention-days: 1
+          overwrite: true
 
       - name: Record build end time and duration
         id: end-time

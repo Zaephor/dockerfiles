@@ -10,9 +10,12 @@ source:
   tag_pattern: "^act-24\\.04$"
   registry: ghcr.io
 
-variants:
-  - act-24.04
-  - act-22.04
+# NOTE: The variants field below is currently documentation-only
+# The system auto-discovers variants by scanning for Dockerfile.* files
+# See: https://github.com/zaephor/dockerfiles/issues/XXX
+# variants:
+#   - act-24.04
+#   - act-22.04
 
 architectures:
   - amd64
