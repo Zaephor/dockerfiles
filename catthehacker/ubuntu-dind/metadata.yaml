@@ -1,0 +1,36 @@
+name: catthehacker-ubuntu-dind
+description: Docker-in-Docker enabled version of catthehacker/ubuntu for GitHub Actions
+version_source: docker_tag
+
+source:
+  # Watch the act-24.04 tag for version changes
+  # Both variants will rebuild when this changes
+  # TODO: Enhance to track each variant independently via SHA256
+  docker_image: ghcr.io/catthehacker/ubuntu
+  tag_pattern: "^act-24\\.04$"
+  registry: ghcr.io
+
+variants:
+  - act-24.04
+  - act-22.04
+
+architectures:
+  - amd64
+  - arm64
+
+tags:
+  strategy: exact
+  # TODO: Add custom tag patterns for:
+  # - Variant-specific "latest" tags (act-24.04, act-22.04)
+  # - Date-based tags (act-24.04-yyyymmdd)
+  # - SHA-based tags (act-24.04-<sha256>)
+  include:
+    - latest
+
+labels:
+  org.opencontainers.image.title: "catthehacker/ubuntu-dind"
+  org.opencontainers.image.description: "Docker-in-Docker enabled catthehacker/ubuntu images for GitHub Actions"
+  org.opencontainers.image.url: "https://github.com/zaephor/dockerfiles"
+  org.opencontainers.image.source: "https://github.com/zaephor/dockerfiles"
+  org.opencontainers.image.vendor: "zaephor"
+  org.opencontainers.image.licenses: "MIT"
