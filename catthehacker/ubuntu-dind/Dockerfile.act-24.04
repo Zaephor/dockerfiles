@@ -35,5 +35,9 @@ RUN chmod +x /usr/local/bin/entrypoint-dind.sh
 
 VOLUME /var/lib/docker
 
+# Health check to verify Docker daemon is responsive
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD docker info >/dev/null 2>&1 || exit 1
+
 ENTRYPOINT ["/usr/local/bin/entrypoint-dind.sh"]
 CMD ["/bin/bash"]
