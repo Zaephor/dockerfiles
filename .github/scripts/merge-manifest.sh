@@ -328,10 +328,12 @@ create_manifest() {
     if readme_content=$(echo "$README_B64" | base64 -d 2>/dev/null); then
       # Convert to single line, collapse multiple spaces, truncate to 1000 chars
       local description
-      description=$(echo "$readme_content" | tr '\n' ' ' | sed 's/  */ /g' | head -c 1000)
+      description=$(echo "$readme_content" | tr '\n' ' ' | sed 's/  */ /g' | head -c 1000 | xargs)
 
-      # Add as OCI annotation to manifest
-      annotation_args+=(--annotation "org.opencontainers.image.description=${description}")
+      # Only add annotation if description is non-empty after processing
+      if [[ -n "$description" ]]; then
+        annotation_args+=(--annotation "org.opencontainers.image.description=${description}")
+      fi
     fi
   fi
 
