@@ -98,7 +98,8 @@ matrix_create_entry() {
 #   Exit 1: jq error
 matrix_build_json() {
     # Read array of matrix entries and build the final matrix structure
-    jq -s '{"image": .}' 2>/dev/null
+    # Use -c for compact output (no newlines) required by GitHub Actions
+    jq -sc '{"image": .}' 2>/dev/null
     local exit_code=$?
 
     if [[ $exit_code -ne 0 ]]; then
