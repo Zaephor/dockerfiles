@@ -375,8 +375,16 @@ jobs:
           # All cache layers stored in single "buildcache" package
           CACHE_TAG="ghcr.io/${GHCR_REPO}/buildcache:${IMAGE_NAME}-${ARCH}"
 
+          # Read image README for package description (if exists)
+          IMAGE_DESCRIPTION=""
+          if [ -f "${IMAGE_NAME}/README.md" ]; then
+            # Read README and escape for use in label (single line, quotes escaped)
+            IMAGE_DESCRIPTION=$(cat "${IMAGE_NAME}/README.md" | head -100 | tr '\n' ' ' | sed 's/"/\\"/g')
+          fi
+
           echo "image_repo=${IMAGE_REPO}" >> $GITHUB_OUTPUT
           echo "cache_tag=${CACHE_TAG}" >> $GITHUB_OUTPUT
+          echo "image_description=${IMAGE_DESCRIPTION}" >> $GITHUB_OUTPUT
 
           log_structured "${{ matrix.config.image.name }}" "${{ matrix.config.arch }}" "BUILD_CONFIG" "Image: ${IMAGE_NAME}, Version: ${{ matrix.config.image.version }}, Platform: ${{ matrix.config.platform }}, Reason: ${{ matrix.config.image.reason }}"
 
@@ -388,6 +396,12 @@ jobs:
           max_attempts: 2
           retry_wait_seconds: 30
           command: |
+            # Build label args (conditional based on metadata availability)
+            LABEL_ARGS=""
+            if [ -n "${{ steps.meta.outputs.image_description }}" ]; then
+              LABEL_ARGS="--label org.opencontainers.image.description=\"${{ steps.meta.outputs.image_description }}\""
+            fi
+
             docker buildx build \
               --platform ${{ matrix.config.platform }} \
               --file ${{ matrix.config.image.dockerfile }} \
@@ -395,6 +409,9 @@ jobs:
               --cache-from type=registry,ref=${{ steps.meta.outputs.cache_tag }}-${{ matrix.config.image.variant }} \
               --cache-to type=gha,mode=max,scope=buildx-${{ matrix.config.image.name }}-${{ matrix.config.arch }}-${{ matrix.config.image.variant }} \
               --cache-to type=registry,ref=${{ steps.meta.outputs.cache_tag }}-${{ matrix.config.image.variant }},mode=max \
+              --label org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }} \
+              --label org.opencontainers.image.revision=${{ github.sha }} \
+              ${LABEL_ARGS} \
               --metadata-file /tmp/build-metadata.json \
               --output type=image,name=${{ steps.meta.outputs.image_repo }},push-by-digest=true,name-canonical=true,push=true \
               ${{ matrix.config.image.name }}
@@ -1020,6 +1037,54 @@ jobs:
           echo "Branch: ${{ github.ref_name }}"
           echo ""
           echo "Successfully created manifests for all built images"
+
+  commit-history:
+    name: Commit Build History
+    needs: [build-arch, create-manifest]
+    runs-on: ubuntu-latest
+    if: github.event.inputs.dry_run != 'true' && needs.build-arch.result == 'success'
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download all digest artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: digest-*
+          path: /tmp/digests
+          merge-multiple: true
+
+      - name: Commit updated history files
+        run: |
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Check if there are any history files to commit
+          if git diff --quiet -- '*/history.jsonl'; then
+            echo "No history changes to commit"
+            exit 0
+          fi
+
+          # Add all history.jsonl files
+          git add '*/history.jsonl'
+
+          # Create commit with summary
+          COMMIT_COUNT=$(git diff --cached --numstat | wc -l)
+          git commit -m "chore: update build history
+
+- Updated history for $COMMIT_COUNT image(s)
+- Build ID: ${{ github.run_id }}
+- Triggered by: ${{ github.event_name }}
+
+🤖 Generated with [GitHub Actions](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+
+          # Push changes
+          git push
 
   workflow-summary:
     name: Workflow Summary Report
