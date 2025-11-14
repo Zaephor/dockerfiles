@@ -106,7 +106,7 @@ discover_variants() {
 
         # Validate variant name
         if ! validate_variant_name "$variant_name"; then
-            log_warning "Skipping variant with invalid name: $variant_name (must be lowercase alphanumeric with hyphens)"
+            log_warning "Skipping variant with invalid name: $variant_name (must be lowercase alphanumeric with hyphens and dots)"
             continue
         fi
 
@@ -141,7 +141,8 @@ discover_variants() {
 #######################################
 # Validates a variant name
 #
-# Checks that variant name is lowercase alphanumeric with optional hyphens.
+# Checks that variant name is lowercase alphanumeric with optional hyphens and dots.
+# Allows dots to support version-based variant names (e.g., act-24.04).
 # Does not allow names that conflict with version strings.
 #
 # Arguments:
@@ -159,8 +160,9 @@ validate_variant_name() {
         return 1
     fi
 
-    # Must be lowercase alphanumeric with hyphens only
-    if [[ ! "$name" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?$ ]]; then
+    # Must be lowercase alphanumeric with hyphens and dots
+    # Dots are allowed to support version-based variants (e.g., act-24.04)
+    if [[ ! "$name" =~ ^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$ ]]; then
         return 1
     fi
 
