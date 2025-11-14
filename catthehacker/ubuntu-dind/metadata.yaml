@@ -8,6 +8,7 @@ version_source:
   registry: ghcr.io
   image: catthehacker/ubuntu
   tag_filter: "^act-24\\.04$"
+  auth_token_secret: GITHUB_TOKEN
 
 # NOTE: The variants field below is currently documentation-only
 # The system auto-discovers variants by scanning for Dockerfile.* files

@@ -3,6 +3,7 @@ version_source:
   type: github_releases
   repo: gianarb/hello-world
   version_regex: ^v(.+)$
+  auth_token_secret: GITHUB_TOKEN
 
 architectures: [amd64, arm64]
 

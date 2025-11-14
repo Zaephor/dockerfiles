@@ -158,6 +158,8 @@ jobs:
 
       - name: Generate build matrix
         id: set-matrix
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Run matrix generation script with manual control parameters (Sprint 13)
           # Script will set matrix in GITHUB_OUTPUT directly and also output to stdout
