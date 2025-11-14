@@ -512,12 +512,19 @@ jobs:
             log_structured "${{ matrix.config.image.name }}" "${{ matrix.config.arch }}" "IMAGE_SIZE" "Size unavailable (will be calculated on next build for comparison)"
           fi
 
+      - name: Prepare artifact name (escape slashes for nested folders)
+        id: artifact-name
+        run: |
+          # Replace / with _ for artifact names (nested folders like traefik/traefik)
+          ESCAPED_NAME="${{ matrix.config.image.name }}"
+          ESCAPED_NAME="${ESCAPED_NAME//\//_}"
+          echo "escaped=${ESCAPED_NAME}" >> $GITHUB_OUTPUT
+
       - name: Upload digest artifact
         if: steps.build.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
-          # Replace / with _ for artifact names (nested folders like traefik/traefik)
-          name: digest-${{ replace(matrix.config.image.name, '/', '_') }}-${{ matrix.config.image.variant }}-${{ matrix.config.arch }}
+          name: digest-${{ steps.artifact-name.outputs.escaped }}-${{ matrix.config.image.variant }}-${{ matrix.config.arch }}
           path: /tmp/digests/${{ matrix.config.arch }}.txt
           retention-days: 1
 
@@ -541,8 +548,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          # Replace / with _ for artifact names (nested folders like traefik/traefik)
-          name: status-${{ replace(matrix.config.image.name, '/', '_') }}-${{ matrix.config.image.variant }}-${{ matrix.config.arch }}
+          name: status-${{ steps.artifact-name.outputs.escaped }}-${{ matrix.config.image.variant }}-${{ matrix.config.arch }}
           path: /tmp/status/${{ matrix.config.arch }}.txt
           retention-days: 1
 
