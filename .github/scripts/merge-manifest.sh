@@ -341,7 +341,17 @@ create_manifest() {
   info "Manifest tag: $manifest_tag"
   info "Source digests: ${digest_args[*]}"
 
-  if docker buildx imagetools create -t "$manifest_tag" "${annotation_args[@]}" "${digest_args[@]}"; then
+  # Build command with or without annotations to avoid empty string expansion
+  local buildx_cmd=(docker buildx imagetools create -t "$manifest_tag")
+
+  # Only add annotation args if array has elements
+  if [ ${#annotation_args[@]} -gt 0 ]; then
+    buildx_cmd+=("${annotation_args[@]}")
+  fi
+
+  buildx_cmd+=("${digest_args[@]}")
+
+  if "${buildx_cmd[@]}"; then
     info "Manifest created successfully: $manifest_tag"
     return 0
   else
