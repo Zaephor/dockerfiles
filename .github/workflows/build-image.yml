@@ -332,6 +332,9 @@ jobs:
       packages: write
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Record build start time
         id: start-time
         run: |
@@ -342,9 +345,6 @@ jobs:
           echo "start=$start_time" >> $GITHUB_OUTPUT
 
           log_structured "${{ matrix.config.image.name }}" "${{ matrix.config.arch }}" "BUILD_START" "Starting build for version ${{ matrix.config.image.version }}"
-
-      - name: Checkout code
-        uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
