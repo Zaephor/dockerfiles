@@ -46,6 +46,24 @@ act -P ubuntu-latest=ghcr.io/zaephor/dockerfiles/catthehacker/ubuntu-dind:act-24
 docker run --privileged -it ghcr.io/zaephor/dockerfiles/catthehacker/ubuntu-dind:act-24.04
 ```
 
+### With Gitea Runner
+
+```yaml
+# .gitea/workflows/build.yml
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/zaephor/dockerfiles/catthehacker/ubuntu-dind:act-24.04
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build with Docker
+        run: docker build -t myapp .
+```
+
+**Note:** Docker daemon auto-starts even when Gitea Runner overrides the entrypoint. The image includes an auto-start script in `/etc/profile.d/` that ensures dockerd is running on any shell session.
+
 ## Features
 
 - **Docker Engine**: Latest stable Docker CE
@@ -255,6 +273,32 @@ docker history ghcr.io/zaephor/dockerfiles/catthehacker/ubuntu-dind:act-24.04 > 
 docker history ghcr.io/zaephor/dockerfiles/catthehacker/ubuntu-dind:act-22.04 > v2.txt
 diff v1.txt v2.txt
 ```
+
+### How Docker Auto-Start Works
+
+This image uses a dual-mechanism approach to ensure dockerd is always running, regardless of how the container is launched:
+
+**1. Standard Entrypoint** (`/usr/local/bin/entrypoint-dind.sh`)
+- Used when container runs normally without entrypoint override
+- Sources `/usr/local/bin/init-docker.sh` to start dockerd
+- Handles user mode logic (HOST_UID/HOST_GID)
+
+**2. Profile Script** (`/etc/profile.d/99-docker.sh`)
+- Automatically sourced on any bash/shell login
+- Symlink to the same `/usr/local/bin/init-docker.sh` script
+- Ensures dockerd starts even when entrypoint is overridden (e.g., by Gitea Runner)
+
+**The init-docker.sh script is idempotent:**
+- Checks if dockerd is already running before starting
+- Safe to call multiple times (no-op if already running)
+- Generates daemon.json from environment variables
+- Waits for Docker to be ready before returning
+
+**Why this matters:**
+- **Gitea Runner** overrides entrypoint → profile.d script ensures dockerd starts
+- **Direct docker run** → entrypoint starts dockerd normally
+- **Any other runner** that overrides entrypoint → profile.d has you covered
+- **Consistent behavior** regardless of launch method
 
 ## Architecture Support
 
