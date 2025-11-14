@@ -22,13 +22,10 @@ architectures:
   - arm64
 
 tags:
-  strategy: exact
-  # TODO: Add custom tag patterns for:
-  # - Variant-specific "latest" tags (act-24.04, act-22.04)
-  # - Date-based tags (act-24.04-yyyymmdd)
-  # - SHA-based tags (act-24.04-<sha256>)
-  include:
-    - latest
+  # Use variant_only strategy to generate clean variant name tags only
+  # This prevents confusing tags like "latest-act-24.04" or "{commit}-act-24.04"
+  # Each variant tag (act-24.04, act-22.04) acts as the "latest" for that variant
+  strategy: variant_only
 
 labels:
   org.opencontainers.image.title: "catthehacker/ubuntu-dind"

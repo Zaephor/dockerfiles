@@ -292,9 +292,19 @@ create_all_manifests() {
           version="${COMMIT_SHA:0:8}"
         fi
 
+        # Read tag strategy from metadata.yaml if present
+        local tag_strategy=""
+        if [ -f "$version_file" ]; then
+          tag_strategy=$(yq eval '.tags.strategy // ""' "$version_file" 2>/dev/null || echo "")
+        fi
+
         # Generate variant-specific tags
         local variant_tags
-        variant_tags=$(build_variant_tags --image "$image_name" --version "$version" --variant "$variant_name" --registry "ghcr.io/${ghcr_repo}")
+        if [ -n "$tag_strategy" ]; then
+          variant_tags=$(build_variant_tags --image "$image_name" --version "$version" --variant "$variant_name" --registry "ghcr.io/${ghcr_repo}" --tag-strategy "$tag_strategy")
+        else
+          variant_tags=$(build_variant_tags --image "$image_name" --version "$version" --variant "$variant_name" --registry "ghcr.io/${ghcr_repo}")
+        fi
 
         if [ -n "$variant_tags" ]; then
           echo "Generated tags for ${variant_name}:"

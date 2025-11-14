@@ -35,11 +35,12 @@ source "$(dirname "${BASH_SOURCE[0]}")/logging.sh"
 #     - latest-{variant} (e.g., latest-alpine)
 #
 # Arguments:
-#   --image <name>      : Image name (required, e.g., hello-world)
-#   --version <ver>     : Version string (required, e.g., 1.0.0)
-#   --variant <var>     : Variant name (required, e.g., alpine or default)
-#   --arch <arch>       : Architecture (optional, amd64/arm64; if provided, includes arch-specific tags)
-#   --registry <reg>    : Registry prefix (optional, defaults to ghcr.io/username/repo)
+#   --image <name>        : Image name (required, e.g., hello-world)
+#   --version <ver>       : Version string (required, e.g., 1.0.0)
+#   --variant <var>       : Variant name (required, e.g., alpine or default)
+#   --arch <arch>         : Architecture (optional, amd64/arm64; if provided, includes arch-specific tags)
+#   --registry <reg>      : Registry prefix (optional, defaults to ghcr.io/username/repo)
+#   --tag-strategy <str>  : Tag strategy (optional, e.g., variant_only; controls which tags are generated)
 #
 # Output (stdout):
 #   Newline-separated list of tags
@@ -55,6 +56,7 @@ build_variant_tags() {
     local variant=""
     local arch=""
     local registry_prefix=""
+    local tag_strategy=""
 
     # Parse arguments
     while [[ $# -gt 0 ]]; do
@@ -77,6 +79,10 @@ build_variant_tags() {
                 ;;
             --registry)
                 registry_prefix="$2"
+                shift 2
+                ;;
+            --tag-strategy)
+                tag_strategy="$2"
                 shift 2
                 ;;
             *)
@@ -147,10 +153,17 @@ build_variant_tags() {
         tags+=("${registry_prefix}/${image_name}:${version}")
         tags+=("${registry_prefix}/${image_name}:latest")
     else
-        # Named variant: include variant suffix
-        tags+=("${registry_prefix}/${image_name}:${version}-${variant}")
-        tags+=("${registry_prefix}/${image_name}:${variant}")
-        tags+=("${registry_prefix}/${image_name}:latest-${variant}")
+        # Named variant: apply tag strategy
+        if [[ "$tag_strategy" == "variant_only" ]]; then
+            # variant_only: Only generate clean variant name tag
+            # The variant name itself acts as the "latest" for that variant
+            tags+=("${registry_prefix}/${image_name}:${variant}")
+        else
+            # Default strategy: generate all variant tags
+            tags+=("${registry_prefix}/${image_name}:${version}-${variant}")
+            tags+=("${registry_prefix}/${image_name}:${variant}")
+            tags+=("${registry_prefix}/${image_name}:latest-${variant}")
+        fi
     fi
 
     # Output all tags (one per line)
