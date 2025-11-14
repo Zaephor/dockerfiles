@@ -181,40 +181,70 @@ create_all_manifests() {
     fi
 
     # Parse image and variant from the combined name
-    # Strategy: variants are discovered by matching directory structure
-    # Extract from directory listing in repo root (authoritative source)
+    # Artifact format: digest-{image_with_underscores}-{variant}-{arch}
+    # Image names with / are escaped to _ (e.g., traefik/traefik → traefik_traefik)
     local image_name=""
     local variant_name=""
 
-    # Check if image-variant directory exists by scanning repo root
-    for dir in "${WORKSPACE}"/*/; do
-      local dir_name
-      dir_name=$(basename "$dir")
+    # Strategy: Try to match the artifact name against discovered images
+    # We need to handle both flat (hello-world) and nested (traefik/traefik) structures
 
-      # Check if this directory starts the image-variant pair
-      if [[ "$image_variant" == "$dir_name"* ]]; then
-        # This is the image directory
-        image_name="$dir_name"
+    # First, try exact underscore-to-slash conversion
+    # Look for last occurrence of a valid image directory
+    local test_image_variant="$image_variant"
+
+    # Try progressively shorter prefixes as potential image names
+    # Start with the full image_variant, then remove variant suffixes
+    while [[ -n "$test_image_variant" ]]; do
+      # Convert underscores to slashes for testing
+      local test_image_path="${test_image_variant//_//}"
+
+      # Check if this corresponds to an actual image directory
+      if [ -d "${WORKSPACE}/${test_image_path}" ] && [ -f "${WORKSPACE}/${test_image_path}/metadata.yaml" ]; then
+        image_name="$test_image_path"
 
         # Everything after image name is variant
-        local variant_part="${image_variant#$image_name-}"
-        if [ "$variant_part" == "$image_variant" ]; then
-          # No variant suffix found, use default
-          variant_name="default"
+        local remaining="${image_variant#${test_image_variant}}"
+        if [[ "$remaining" == "-"* ]]; then
+          variant_name="${remaining#-}"
         else
-          variant_name="$variant_part"
+          variant_name="default"
         fi
+        break
+      fi
+
+      # Try removing the last component (potential variant)
+      if [[ "$test_image_variant" =~ ^(.+)-[^-]+$ ]]; then
+        test_image_variant="${BASH_REMATCH[1]}"
+      else
         break
       fi
     done
 
     # Error handling: No matching image directory found
     if [ -z "$image_name" ]; then
-      error "Could not find matching image directory for artifact: $image_variant"
+      error "Could not find matching image directory for artifact: $image_variant (tried converting _ to /)"
     fi
 
-    # Create manifest using merge-manifest.sh script
-    local image_repo="ghcr.io/${ghcr_repo}/${image_name}"
+    # Determine registry path (support registry_path override from metadata.yaml)
+    local registry_path=""
+    local metadata_file="${WORKSPACE}/${image_name}/metadata.yaml"
+
+    if [ -f "$metadata_file" ]; then
+      # Check for registry_path override in metadata.yaml
+      registry_path=$(yq eval '.registry_path // ""' "$metadata_file" 2>/dev/null || echo "")
+    fi
+
+    # Build image repository URL
+    local image_repo
+    if [ -n "$registry_path" ]; then
+      # Use registry_path override (just owner namespace, not full repo path)
+      local owner="${ghcr_repo%%/*}"
+      image_repo="ghcr.io/${owner}/${registry_path}"
+    else
+      # Default: use repository name and image path
+      image_repo="ghcr.io/${ghcr_repo}/${image_name}"
+    fi
 
     # Read image README for GHCR package page (if exists)
     local image_readme_b64=""

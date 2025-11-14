@@ -1,45 +1,57 @@
 #!/usr/bin/env bash
 # Image discovery library
-# Discovers all Docker image directories at repository root level
+# Discovers all Docker image directories (supports nested folders)
 # Images are identified by presence of both Dockerfile and metadata.yaml
 
 set -euo pipefail
 
 # Discover all image directories in repository
-# Discovers directories at project root containing Dockerfile and metadata.yaml
+# Discovers directories containing Dockerfile and metadata.yaml
+# Supports nested folders (e.g., traefik/traefik, traefik/whoami)
 # Args:
 #   $1: Repository root directory
 # Returns:
-#   Array of image directory names (not full paths)
+#   Array of image directory paths relative to repo root (e.g., "hello-world", "traefik/traefik")
 discover_images() {
     local repo_root="${1:-.}"
     local -a images=()
 
-    # Find directories at root level (excluding hidden dirs and special dirs)
-    local -a exclude_dirs=(".github" "docs" "research" "specs" "tests")
+    # Excluded directories to skip during discovery
+    local -a exclude_patterns=(
+        ".github"
+        ".git"
+        "docs"
+        "research"
+        "specs"
+        "tests"
+        "node_modules"
+    )
 
-    while IFS= read -r -d '' dir; do
-        local dir_name
-        dir_name=$(basename "$dir")
+    # Find all directories with metadata.yaml (recursively)
+    # This identifies image directories regardless of nesting depth
+    while IFS= read -r metadata_file; do
+        local image_dir
+        image_dir=$(dirname "$metadata_file")
 
-        # Skip excluded directories
+        # Get relative path from repo root
+        local rel_path="${image_dir#${repo_root}/}"
+        rel_path="${rel_path#./}"  # Remove leading ./ if present
+
+        # Skip if path starts with excluded directory
         local skip=false
-        for exclude in "${exclude_dirs[@]}"; do
-            if [[ "$dir_name" == "$exclude" ]]; then
+        for exclude in "${exclude_patterns[@]}"; do
+            if [[ "$rel_path" == "$exclude"* ]]; then
                 skip=true
                 break
             fi
         done
         [[ "$skip" == "true" ]] && continue
 
-        # Skip hidden directories
-        [[ "$dir_name" =~ ^\.+ ]] && continue
-
-        # Check if both Dockerfile and metadata.yaml exist
-        if [[ -f "$dir/Dockerfile" ]] && [[ -f "$dir/metadata.yaml" ]]; then
-            images+=("$dir_name")
+        # Check if Dockerfile exists alongside metadata.yaml
+        if [[ -f "${image_dir}/Dockerfile" ]]; then
+            images+=("$rel_path")
         fi
-    done < <(find "$repo_root" -maxdepth 1 -type d -print0)
+    done < <(find "$repo_root" -type f -name "metadata.yaml" 2>/dev/null)
 
     # Sort for consistent output
     printf '%s\n' "${images[@]}" | sort

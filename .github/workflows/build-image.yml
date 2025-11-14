@@ -516,7 +516,8 @@ jobs:
         if: steps.build.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
-          name: digest-${{ matrix.config.image.name }}-${{ matrix.config.image.variant }}-${{ matrix.config.arch }}
+          # Replace / with _ for artifact names (nested folders like traefik/traefik)
+          name: digest-${{ replace(matrix.config.image.name, '/', '_') }}-${{ matrix.config.image.variant }}-${{ matrix.config.arch }}
           path: /tmp/digests/${{ matrix.config.arch }}.txt
           retention-days: 1
 
@@ -540,7 +541,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: status-${{ matrix.config.image.name }}-${{ matrix.config.image.variant }}-${{ matrix.config.arch }}
+          # Replace / with _ for artifact names (nested folders like traefik/traefik)
+          name: status-${{ replace(matrix.config.image.name, '/', '_') }}-${{ matrix.config.image.variant }}-${{ matrix.config.arch }}
           path: /tmp/status/${{ matrix.config.arch }}.txt
           retention-days: 1
 

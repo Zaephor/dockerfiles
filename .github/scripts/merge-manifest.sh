@@ -323,18 +323,28 @@ create_manifest() {
   # Prepare annotation arguments if README provided
   local annotation_args=()
   if [[ -n "$README_B64" ]]; then
+    info "README provided (base64 length: ${#README_B64})"
     # Decode base64 README content
     local readme_content
     if readme_content=$(echo "$README_B64" | base64 -d 2>/dev/null); then
+      info "README decoded (length: ${#readme_content})"
       # Convert to single line, collapse multiple spaces, truncate to 1000 chars
       local description
       description=$(echo "$readme_content" | tr '\n' ' ' | sed 's/  */ /g' | head -c 1000 | xargs)
 
+      info "Description processed (length: ${#description})"
       # Only add annotation if description is non-empty after processing
       if [[ -n "$description" ]]; then
+        info "Adding annotation with description"
         annotation_args+=(--annotation "org.opencontainers.image.description=${description}")
+      else
+        warn "Description is empty after processing - skipping annotation"
       fi
+    else
+      warn "Failed to decode README from base64"
     fi
+  else
+    info "No README provided - skipping annotations"
   fi
 
   # Create manifest using docker buildx imagetools
