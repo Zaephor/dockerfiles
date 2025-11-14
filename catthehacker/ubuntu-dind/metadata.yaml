@@ -1,14 +1,13 @@
 name: catthehacker-ubuntu-dind
 description: Docker-in-Docker enabled version of catthehacker/ubuntu for GitHub Actions
-version_source:
-  type: docker_tag
-  # Watch the act-24.04 tag for version changes
-  # Both variants will rebuild when this changes
-  # TODO: Enhance to track each variant independently via SHA256
-  registry: ghcr.io
-  image: catthehacker/ubuntu
-  tag_filter: "^act-24\\.04$"
-  auth_token_secret: GITHUB_TOKEN
+
+# Version tracking: This image tracks upstream catthehacker/ubuntu:act-24.04
+# Since we rebuild on any Dockerfile/script changes (file change detection),
+# and the upstream image digest is baked into the FROM line,
+# we rely on file change detection rather than external version tracking.
+#
+# To force a rebuild when only upstream changes (no local changes):
+#   Use workflow_dispatch with force_rebuild: true
 
 # NOTE: The variants field below is currently documentation-only
 # The system auto-discovers variants by scanning for Dockerfile.* files
