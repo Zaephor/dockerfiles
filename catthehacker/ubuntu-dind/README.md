@@ -62,10 +62,13 @@ jobs:
         run: docker build -t myapp .
 ```
 
-**Note:** Docker daemon auto-starts even when Gitea Runner overrides the entrypoint. The image includes multiple hooks to ensure dockerd starts:
-- `BASH_ENV` for non-interactive bash shells
-- `/etc/bash.bashrc` for interactive shells
-- `/etc/profile.d/99-docker.sh` for login shells
+**Note:** Docker daemon auto-starts even when Gitea Runner overrides the entrypoint. The image includes multiple mechanisms to ensure dockerd starts:
+- **Docker CLI wrapper**: The `docker` command is wrapped to auto-start dockerd on first use (works even when entrypoint is completely overridden)
+- **BASH_ENV**: Auto-sources init script for non-interactive bash shells
+- **bash.bashrc**: Runs for interactive shells
+- **profile.d**: Runs for login shells
+
+This multi-layered approach ensures dockerd starts regardless of how the container is invoked.
 
 ## Features
 

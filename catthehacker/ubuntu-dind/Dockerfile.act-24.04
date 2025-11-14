@@ -34,6 +34,12 @@ RUN chmod +x /usr/local/bin/init-docker.sh && \
 # Set BASH_ENV to auto-source init script for non-interactive shells
 ENV BASH_ENV=/usr/local/bin/init-docker.sh
 
+# Wrap docker CLI to auto-start dockerd on first use
+COPY docker-wrapper.sh /usr/local/bin/docker-wrapper.sh
+RUN chmod +x /usr/local/bin/docker-wrapper.sh && \
+    mv /usr/bin/docker /usr/bin/docker.real && \
+    ln -s /usr/local/bin/docker-wrapper.sh /usr/bin/docker
+
 # Docker-in-Docker entrypoint wrapper
 COPY entrypoint-dind.sh /usr/local/bin/entrypoint-dind.sh
 RUN chmod +x /usr/local/bin/entrypoint-dind.sh
