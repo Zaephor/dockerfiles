@@ -22,7 +22,8 @@ source "$(dirname "${BASH_SOURCE[0]}")/logging.sh"
 #
 # Scans for Dockerfile and Dockerfile.* files, extracts variant names,
 # and returns JSON output with sorted variant list. Default variant
-# (Dockerfile) always appears first.
+# (Dockerfile) appears first if it exists, otherwise only named variants
+# are returned.
 #
 # Arguments:
 #   --image-dir <path>: Absolute path to image directory (required)
@@ -36,10 +37,18 @@ source "$(dirname "${BASH_SOURCE[0]}")/logging.sh"
 #     ]
 #   }
 #
+#   Or if no default Dockerfile exists:
+#   {
+#     "variants": [
+#       { "name": "act-22.04", "dockerfile": "/path/to/Dockerfile.act-22.04" },
+#       { "name": "act-24.04", "dockerfile": "/path/to/Dockerfile.act-24.04" }
+#     ]
+#   }
+#
 # Exit codes:
 #   0: Success
 #   1: Image directory not found
-#   2: No Dockerfile found in directory
+#   2: No Dockerfile or Dockerfile.* variants found in directory
 #
 #######################################
 discover_variants() {
@@ -74,15 +83,13 @@ discover_variants() {
     # Find all Dockerfile variants (Dockerfile and Dockerfile.*)
     local default_dockerfile="${image_dir}/Dockerfile"
     local variants=()
+    local has_default=false
 
-    # Check default Dockerfile exists
-    if [[ ! -f "$default_dockerfile" ]]; then
-        log_error "No Dockerfile found in $image_dir"
-        return 2
+    # Add default variant if it exists (optional)
+    if [[ -f "$default_dockerfile" ]]; then
+        variants+=("default:${default_dockerfile}")
+        has_default=true
     fi
-
-    # Add default variant
-    variants+=("default:${default_dockerfile}")
 
     # Find all Dockerfile.* variants in image directory
     # Use find to scan only top-level files, exclude templates and backups
@@ -114,22 +121,26 @@ discover_variants() {
         variants+=("${variant_name}:${dockerfile_path}")
     done < <(find "$image_dir" -maxdepth 1 -name "Dockerfile*" -type f | sort)
 
-    # Sort variants alphabetically (keeping default first)
-    local json_variants='['
-
-    # Add default first
-    if [[ ${#variants[@]} -gt 0 ]]; then
-        IFS=':' read -r name path <<< "${variants[0]}"
-        json_variants+="{\"name\":\"${name}\",\"dockerfile\":\"${path}\"}"
+    # Ensure at least one Dockerfile was found
+    if [[ ${#variants[@]} -eq 0 ]]; then
+        log_error "No Dockerfile or Dockerfile.* variants found in $image_dir"
+        return 2
     fi
 
-    # Add remaining variants
-    for i in "${!variants[@]}"; do
-        if [[ $i -eq 0 ]]; then
-            continue
+    # Build JSON array of variants
+    # Default variant (if exists) is always first, then remaining variants alphabetically
+    local json_variants='['
+    local first=true
+
+    for variant in "${variants[@]}"; do
+        IFS=':' read -r name path <<< "$variant"
+
+        if [[ "$first" == true ]]; then
+            json_variants+="{\"name\":\"${name}\",\"dockerfile\":\"${path}\"}"
+            first=false
+        else
+            json_variants+=",{\"name\":\"${name}\",\"dockerfile\":\"${path}\"}"
         fi
-        IFS=':' read -r name path <<< "${variants[$i]}"
-        json_variants+=",{\"name\":\"${name}\",\"dockerfile\":\"${path}\"}"
     done
 
     json_variants+=']'
