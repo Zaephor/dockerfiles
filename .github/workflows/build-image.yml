@@ -154,7 +154,7 @@ jobs:
             done <<< "$(echo "${{ github.event.inputs.version_override }}" | sed 's/,/\n/g')"
           fi
 
-          log_notice "SYSTEM" "-" "VALIDATION" "All workflow_dispatch inputs validated successfully"
+          log_structured "SYSTEM" "-" "VALIDATION" "All workflow_dispatch inputs validated successfully"
 
       - name: Validate rebuild request
         if: github.event.inputs.rebuild_mode == 'true'
@@ -551,7 +551,7 @@ jobs:
             SIZE_HUMAN=$(format_size_human "$IMAGE_SIZE")
             log_structured "${{ matrix.config.image.name }}" "${{ matrix.config.arch }}" "IMAGE_SIZE" "Size: ${SIZE_HUMAN}"
           else
-            log_notice "${{ matrix.config.image.name }}" "${{ matrix.config.arch }}" "IMAGE_SIZE" "Size unavailable (will be calculated on next build for comparison)"
+            log_structured "${{ matrix.config.image.name }}" "${{ matrix.config.arch }}" "IMAGE_SIZE" "Size unavailable (will be calculated on next build for comparison)"
           fi
 
       - name: Upload digest artifact
@@ -628,11 +628,11 @@ jobs:
           if [ "${{ steps.build.outcome }}" = "success" ]; then
             DIGEST_SHORT="${{ steps.push.outputs.digest }}"
             DIGEST_SHORT="${DIGEST_SHORT:0:12}"
-            log_notice "${{ matrix.config.image.name }}" "${{ matrix.config.arch }}" "BUILD_SUCCESS" "Digest: ${DIGEST_SHORT}..."
+            log_structured "${{ matrix.config.image.name }}" "${{ matrix.config.arch }}" "BUILD_SUCCESS" "Digest: ${DIGEST_SHORT}..."
           fi
 
           if [ $DURATION -lt 600 ]; then
-            log_notice "${{ matrix.config.image.name }}" "${{ matrix.config.arch }}" "PERFORMANCE" "Build completed within target (<10 minutes)"
+            log_structured "${{ matrix.config.image.name }}" "${{ matrix.config.arch }}" "PERFORMANCE" "Build completed within target (<10 minutes)"
           else
             log_warning "${{ matrix.config.image.name }}" "${{ matrix.config.arch }}" "PERFORMANCE" "Build exceeded 10 minute target"
           fi
