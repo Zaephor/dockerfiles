@@ -1,0 +1,7 @@
+# Test metadata with fallback detector configuration
+version_source:
+  - type: github-releases
+    repo: nonexistent/repo  # Will fail
+  - type: docker-tags  # Fallback
+    registry: docker.io
+    image: library/nginx

@@ -1,0 +1,23 @@
+# Multi-stage build: compile hello script in alpine, copy to scratch
+FROM alpine:3.18 as builder
+
+# Create hello script in builder stage
+RUN echo '#!/bin/sh' > /hello && \
+    echo 'echo "Hello from Scratch - Version 1.0.0"' >> /hello && \
+    echo 'echo "Architecture: $(uname -m)"' >> /hello && \
+    chmod +x /hello
+
+# Final scratch stage with minimal files from builder
+FROM scratch
+
+# Copy shell and dependencies from builder
+# Use wildcards for architecture-aware dynamic loader support (amd64, arm64)
+COPY --from=builder /bin/sh /bin/sh
+COPY --from=builder /lib/ld-musl-*.so.1 /lib/
+COPY --from=builder /lib64/ld-linux-*.so.2 /lib64/
+
+# Copy hello script from builder
+COPY --from=builder /hello /hello
+
+# Container entrypoint
+CMD ["/bin/sh", "-c", "/hello"]

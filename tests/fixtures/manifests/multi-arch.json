@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 2,
+  "mediaType": "application/vnd.docker.distribution.manifest.list.v2+json",
+  "manifests": [
+    {
+      "mediaType": "application/vnd.docker.container.image.v1+json",
+      "size": 7023,
+      "digest": "sha256:deadbeefamd64000000000000000000000000000000000000000000000000",
+      "platform": {
+        "architecture": "amd64",
+        "os": "linux"
+      }
+    },
+    {
+      "mediaType": "application/vnd.docker.container.image.v1+json",
+      "size": 7025,
+      "digest": "sha256:deadbeefarm64000000000000000000000000000000000000000000000000",
+      "platform": {
+        "architecture": "arm64",
+        "os": "linux"
+      }
+    },
+    {
+      "mediaType": "application/vnd.docker.container.image.v1+json",
+      "size": 6502,
+      "digest": "sha256:deadbeefarmv7000000000000000000000000000000000000000000000000",
+      "platform": {
+        "architecture": "arm",
+        "os": "linux",
+        "variant": "v7"
+      }
+    },
+    {
+      "mediaType": "application/vnd.docker.container.image.v1+json",
+      "size": 7540,
+      "digest": "sha256:deadbeefppc64le00000000000000000000000000000000000000000000000",
+      "platform": {
+        "architecture": "ppc64le",
+        "os": "linux"
+      }
+    },
+    {
+      "mediaType": "application/vnd.docker.container.image.v1+json",
+      "size": 7029,
+      "digest": "sha256:deadbeeefs390x000000000000000000000000000000000000000000000000",
+      "platform": {
+        "architecture": "s390x",
+        "os": "linux"
+      }
+    }
+  ]
+}

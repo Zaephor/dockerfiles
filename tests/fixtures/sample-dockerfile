@@ -1,0 +1,13 @@
+# Sample Dockerfile for testing
+# Minimal example demonstrating Dockerfile best practices
+
+FROM alpine:latest
+
+# Install curl for version checking
+RUN apk add --no-cache curl
+
+# Set working directory
+WORKDIR /app
+
+# Default command demonstrates version output
+CMD ["curl", "--version"]

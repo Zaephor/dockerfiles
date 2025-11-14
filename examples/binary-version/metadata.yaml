@@ -1,0 +1,8 @@
+name: binary-version-example
+version_source: binary_version
+source:
+  binary_path: /usr/local/bin/tool
+  version_command: --version
+  version_regex: "version (.+)"
+
+architectures: [amd64, arm64]

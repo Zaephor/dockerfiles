@@ -1,0 +1,11 @@
+# Sample build status values for testing merge-manifest.sh
+
+# Valid status values (GitHub Actions job conclusions)
+status_success=success
+status_failure=failure
+status_cancelled=cancelled
+status_skipped=skipped
+
+# Edge cases
+status_empty=
+status_invalid=unknown

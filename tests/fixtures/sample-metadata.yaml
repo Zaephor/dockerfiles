@@ -1,0 +1,14 @@
+# Sample metadata.yaml for testing
+# Represents a realistic image configuration with all common fields
+
+image_name: hello-world
+description: Simple test application
+version_source: github_releases
+architectures:
+  - amd64
+  - arm64
+registries:
+  - ghcr.io
+github_repo: owner/repository
+prerelease_filter: false
+variant_discovery: auto

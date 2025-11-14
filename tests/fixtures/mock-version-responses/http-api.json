@@ -1,0 +1,11 @@
+{
+  "version": "1.2.3",
+  "build_date": "2025-11-10T10:00:00Z",
+  "revision": "abc123def456",
+  "status": "stable",
+  "changelog": {
+    "added": ["Feature 1", "Feature 2"],
+    "fixed": ["Bug fix 1"],
+    "breaking_changes": []
+  }
+}

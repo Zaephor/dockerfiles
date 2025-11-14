@@ -1,0 +1,212 @@
+name: Validate Documentation and Examples
+
+on:
+  push:
+    branches: '**'
+    paths:
+      - 'examples/**'
+      - 'docs/**'
+      - '*.md'
+      - '.github/workflows/validate-docs.yml'
+  pull_request:
+    branches: '**'
+    paths:
+      - 'examples/**'
+      - 'docs/**'
+      - '*.md'
+      - '.github/workflows/validate-docs.yml'
+
+jobs:
+  validate-examples:
+    name: Validate Example Configurations
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          # Install yq for YAML validation
+          sudo apt-get update
+          sudo apt-get install -y yq jq
+
+      - name: Validate example configurations
+        run: |
+          set +e
+          EXIT_CODE=0
+
+          echo "Validating example configurations..."
+
+          for example_dir in examples/*/; do
+            if [ -d "$example_dir" ]; then
+              example_name=$(basename "$example_dir")
+
+              # Check if metadata.yaml exists
+              if [ -f "$example_dir/metadata.yaml" ]; then
+                echo "Validating: $example_name"
+
+                # Use validate-metadata.sh if it exists, otherwise do basic YAML validation
+                if [ -x ".github/scripts/local-tools/validate-metadata.sh" ]; then
+                  cd "$example_dir" && \
+                    bash "../../.github/scripts/local-tools/validate-metadata.sh" "." >/dev/null 2>&1
+                  RESULT=$?
+                  cd - > /dev/null
+
+                  if [ $RESULT -eq 0 ]; then
+                    echo "  ✓ $example_name metadata validation passed"
+                  else
+                    echo "  ✗ $example_name metadata validation failed (exit code: $RESULT)"
+                    EXIT_CODE=1
+                  fi
+                else
+                  # Basic YAML validation with yq
+                  if yq eval . "$example_dir/metadata.yaml" > /dev/null 2>&1; then
+                    echo "  ✓ $example_name YAML syntax valid"
+                  else
+                    echo "  ✗ $example_name YAML syntax invalid"
+                    EXIT_CODE=1
+                  fi
+                fi
+              else
+                echo "  ⚠ $example_name: no metadata.yaml found"
+              fi
+
+              # Check if Dockerfile exists
+              if [ ! -f "$example_dir/Dockerfile" ]; then
+                echo "  ✗ $example_name: missing Dockerfile"
+                EXIT_CODE=1
+              fi
+            fi
+          done
+
+          exit $EXIT_CODE
+
+  validate-links:
+    name: Check Documentation Links
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check markdown links
+        uses: gaurav-nelson/github-action-markdown-link-check@v1
+        with:
+          use-quiet-mode: 'yes'
+          use-verbose-mode: 'no'
+          config-file: '.markdown-link-check.json'
+          max-depth: 2
+          folder-path: 'docs/'
+        continue-on-error: true
+
+      - name: Check README and CONTRIBUTING links
+        uses: gaurav-nelson/github-action-markdown-link-check@v1
+        with:
+          use-quiet-mode: 'yes'
+          use-verbose-mode: 'no'
+          config-file: '.markdown-link-check.json'
+          max-depth: 1
+          file-path: 'README.md'
+        continue-on-error: true
+
+      - name: Check CONTRIBUTING links
+        uses: gaurav-nelson/github-action-markdown-link-check@v1
+        with:
+          use-quiet-mode: 'yes'
+          use-verbose-mode: 'no'
+          config-file: '.markdown-link-check.json'
+          max-depth: 1
+          file-path: 'CONTRIBUTING.md'
+        continue-on-error: true
+
+  validate-internal-links:
+    name: Validate Internal Documentation References
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Verify referenced files exist
+        run: |
+          set +e
+          EXIT_CODE=0
+
+          echo "Checking internal documentation references..."
+
+          # Check README.md for references
+          if [ -f "README.md" ]; then
+            echo "Checking README.md references..."
+
+            # Extract markdown links: [text](path)
+            grep -o '\[.*\]([^)]*)' README.md | sed 's/.*(\(.*\))/\1/' | while read -r link; do
+              # Skip URLs (http://, https://)
+              if [[ "$link" =~ ^http ]]; then
+                continue
+              fi
+
+              # Skip fragments and anchors
+              if [[ "$link" =~ ^#.* ]]; then
+                continue
+              fi
+
+              # Check if file exists
+              if [ ! -f "$link" ] && [ ! -d "$link" ]; then
+                echo "  ✗ Missing reference in README.md: $link"
+                EXIT_CODE=1
+              else
+                echo "  ✓ Valid reference: $link"
+              fi
+            done
+          fi
+
+          # Check CONTRIBUTING.md for references
+          if [ -f "CONTRIBUTING.md" ]; then
+            echo "Checking CONTRIBUTING.md references..."
+
+            grep -o '\[.*\]([^)]*)' CONTRIBUTING.md | sed 's/.*(\(.*\))/\1/' | while read -r link; do
+              if [[ "$link" =~ ^http ]]; then
+                continue
+              fi
+
+              if [[ "$link" =~ ^#.* ]]; then
+                continue
+              fi
+
+              if [ ! -f "$link" ] && [ ! -d "$link" ]; then
+                echo "  ✗ Missing reference in CONTRIBUTING.md: $link"
+                EXIT_CODE=1
+              else
+                echo "  ✓ Valid reference: $link"
+              fi
+            done
+          fi
+
+          # Check docs/ directory references
+          if [ -d "docs" ]; then
+            echo "Checking docs/ directory references..."
+
+            for doc_file in docs/*.md; do
+              if [ -f "$doc_file" ]; then
+                grep -o '\[.*\]([^)]*)' "$doc_file" | sed 's/.*(\(.*\))/\1/' | while read -r link; do
+                  if [[ "$link" =~ ^http ]]; then
+                    continue
+                  fi
+
+                  if [[ "$link" =~ ^#.* ]]; then
+                    continue
+                  fi
+
+                  # Relative references
+                  if [ ! -f "$link" ] && [ ! -d "$link" ]; then
+                    echo "  ✗ Missing reference in $(basename $doc_file): $link"
+                    EXIT_CODE=1
+                  fi
+                done
+              fi
+            done
+          fi
+
+          if [ $EXIT_CODE -eq 0 ]; then
+            echo "All internal references valid"
+          fi
+
+          exit $EXIT_CODE

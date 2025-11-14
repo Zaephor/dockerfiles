@@ -1,0 +1,8 @@
+name: github-release-example
+version_source: github_releases
+source:
+  github_repo: example/example-project
+  version_regex: ^v(.+)$
+  prerelease_handling: stable
+
+architectures: [amd64, arm64]

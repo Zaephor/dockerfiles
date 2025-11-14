@@ -1,0 +1,12 @@
+# Sample Docker image digests for testing merge-manifest.sh
+
+# Valid amd64 digest
+amd64_digest=sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef
+
+# Valid arm64 digest
+arm64_digest=sha256:fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321
+
+# Invalid digests for error testing
+invalid_short=sha256:abc123
+invalid_no_prefix=1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef
+invalid_wrong_prefix=md5:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef

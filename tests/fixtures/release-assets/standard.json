@@ -1,0 +1,29 @@
+{
+  "assets": [
+    {
+      "name": "tool-v1.2.3-linux-amd64.tar.gz",
+      "browser_download_url": "https://github.com/example/tool/releases/download/v1.2.3/tool-v1.2.3-linux-amd64.tar.gz",
+      "size": 5242880
+    },
+    {
+      "name": "tool-v1.2.3-linux-arm64.tar.gz",
+      "browser_download_url": "https://github.com/example/tool/releases/download/v1.2.3/tool-v1.2.3-linux-arm64.tar.gz",
+      "size": 5242880
+    },
+    {
+      "name": "tool-v1.2.3-checksums.txt",
+      "browser_download_url": "https://github.com/example/tool/releases/download/v1.2.3/tool-v1.2.3-checksums.txt",
+      "size": 256
+    },
+    {
+      "name": "tool-v1.2.3-darwin-amd64.tar.gz",
+      "browser_download_url": "https://github.com/example/tool/releases/download/v1.2.3/tool-v1.2.3-darwin-amd64.tar.gz",
+      "size": 5242880
+    },
+    {
+      "name": "tool-v1.2.3-darwin-arm64.tar.gz",
+      "browser_download_url": "https://github.com/example/tool/releases/download/v1.2.3/tool-v1.2.3-darwin-arm64.tar.gz",
+      "size": 5242880
+    }
+  ]
+}

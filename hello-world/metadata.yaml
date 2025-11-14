@@ -1,0 +1,10 @@
+name: hello-world
+version_source: github_releases
+source:
+  github_repo: gianarb/hello-world
+  version_regex: ^v(.+)$
+
+architectures: [amd64, arm64]
+
+registries:
+  - ghcr.io

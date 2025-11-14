@@ -1,0 +1,63 @@
+{
+  "buildx_outputs": [
+    {
+      "name": "amd64-with-cache-hit",
+      "architecture": "linux/amd64",
+      "buildx_output": "DEBUG: Build cache from type=gha\nDEBUG: Cache HIT for base layer sha256:abc123\nDEBUG: Cache HIT for builder layer sha256:def456\nDEBUG: Cache MISS for final layer sha256:ghi789\nExporting to image\nname: ghcr.io/user/repo/image:abc123-amd64\ndigest: sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\n",
+      "expected_cache_hit_rate": 0.66,
+      "expected_image_digest": "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    },
+    {
+      "name": "arm64-full-cache-miss",
+      "architecture": "linux/arm64",
+      "buildx_output": "DEBUG: Build cache from type=gha\nDEBUG: Cache MISS for base layer sha256:abc123\nDEBUG: Cache MISS for builder layer sha256:def456\nDEBUG: Cache MISS for final layer sha256:ghi789\nExporting to image\nname: ghcr.io/user/repo/image:abc123-arm64\ndigest: sha256:fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210\n",
+      "expected_cache_hit_rate": 0.0,
+      "expected_image_digest": "sha256:fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210"
+    },
+    {
+      "name": "amd64-perfect-cache",
+      "architecture": "linux/amd64",
+      "buildx_output": "DEBUG: Build cache from type=gha\nDEBUG: Cache HIT for base layer sha256:abc123\nDEBUG: Cache HIT for builder layer sha256:def456\nDEBUG: Cache HIT for final layer sha256:ghi789\nExporting to image\nname: ghcr.io/user/repo/image:abc123-amd64\ndigest: sha256:1111111111111111111111111111111111111111111111111111111111111111\n",
+      "expected_cache_hit_rate": 1.0,
+      "expected_image_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+    }
+  ],
+  "image_sizes": [
+    {
+      "scenario": "image-size-stable",
+      "current_size": 1073741824,
+      "previous_size": 1073741824,
+      "expected_size_change": 0.0,
+      "expected_size_change_percent": 0
+    },
+    {
+      "scenario": "image-size-increase-small",
+      "current_size": 1100000000,
+      "previous_size": 1073741824,
+      "expected_size_change": 26258176,
+      "expected_size_change_percent": 2.44
+    },
+    {
+      "scenario": "image-size-increase-large",
+      "current_size": 1290000000,
+      "previous_size": 1073741824,
+      "expected_size_change": 216258176,
+      "expected_size_change_percent": 20.13,
+      "warning_threshold": 20
+    },
+    {
+      "scenario": "image-size-decrease",
+      "current_size": 950000000,
+      "previous_size": 1073741824,
+      "expected_size_change": -123741824,
+      "expected_size_change_percent": -11.52
+    }
+  ],
+  "manifest_metadata": [
+    {
+      "scenario": "manifest-with-sizes",
+      "manifest_output": "{\"mediaType\": \"application/vnd.docker.distribution.manifest.v2+json\", \"config\": {\"size\": 10240}, \"layers\": [{\"size\": 1000000000}, {\"size\": 73741824}]}",
+      "expected_total_size": 1073741824
+    }
+  ]
+}

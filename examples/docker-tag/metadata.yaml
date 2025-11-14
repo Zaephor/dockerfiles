@@ -1,0 +1,7 @@
+name: docker-tag-example
+version_source: docker_tag
+source:
+  docker_image: library/python
+  tag_pattern: "^3\\.(1[0-9]|[0-9])(?:-slim)?$"
+
+architectures: [amd64, arm64]

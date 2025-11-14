@@ -1,0 +1,24 @@
+# Expected manifest outputs for testing merge-manifest.sh
+
+# Scenario 1: Both architectures successful
+# Expected: Multi-arch manifest with 2 platforms
+scenario_both_success_platforms=2
+scenario_both_success_architectures="amd64,arm64"
+
+# Scenario 2: Only amd64 successful (arm64 failed)
+# Expected: Single-arch manifest with 1 platform
+scenario_amd64_only_platforms=1
+scenario_amd64_only_architectures="amd64"
+
+# Scenario 3: Only arm64 successful (amd64 failed)
+# Expected: Single-arch manifest with 1 platform
+scenario_arm64_only_platforms=1
+scenario_arm64_only_architectures="arm64"
+
+# Scenario 4: Both architectures failed
+# Expected: Script exits with error code 2
+scenario_both_failed_exit_code=2
+
+# Scenario 5: Missing digest parameters
+# Expected: Script exits with error code 1
+scenario_missing_params_exit_code=1
