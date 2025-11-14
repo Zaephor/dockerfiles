@@ -65,10 +65,12 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run hadolint on Dockerfiles
-        uses: hadolint/hadolint-action@v3.1.0
-        with:
-          dockerfile: */Dockerfile
-          failure-threshold: error
+        run: |
+          # Lint all Dockerfiles in the repository
+          find . -name "Dockerfile" -not -path "./.git/*" | while read -r dockerfile; do
+            echo "Linting: $dockerfile"
+            docker run --rm -i hadolint/hadolint:latest-alpine < "$dockerfile" || exit 1
+          done
 
   test:
     name: Run BATS Tests

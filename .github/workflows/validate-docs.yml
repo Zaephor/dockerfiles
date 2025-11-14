@@ -26,9 +26,17 @@ jobs:
 
       - name: Install dependencies
         run: |
-          # Install yq for YAML validation
+          # Install jq for JSON processing
           sudo apt-get update
-          sudo apt-get install -y yq jq
+          sudo apt-get install -y jq
+
+          # Install yq from GitHub releases
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
+          # Verify installations
+          jq --version
+          yq --version
 
       - name: Validate example configurations
         run: |
