@@ -3,6 +3,10 @@ set -e
 
 DOCKER_LOG="/tmp/docker.log"
 
+# Set defaults if HOST_UID/HOST_GID are not provided
+: "${HOST_UID:=1000}"
+: "${HOST_GID:=1000}"
+
 # Determine or create host-aligned user inside container
 
 # If UID exists, resolve its username
