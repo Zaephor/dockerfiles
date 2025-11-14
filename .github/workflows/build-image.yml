@@ -113,11 +113,11 @@ jobs:
 
           # Validate image_filter
           if [[ -n "${{ github.event.inputs.image_filter }}" ]]; then
-            log_structured "SYSTEM" "VALIDATION" "Validating image_filter: ${{ github.event.inputs.image_filter }}"
+            log_structured "SYSTEM" "-" "VALIDATION" "Validating image_filter: ${{ github.event.inputs.image_filter }}"
             while IFS=',' read -r filter_image; do
               filter_image=$(echo "$filter_image" | xargs)
               if ! echo "$IMAGE_DIRS" | grep -q "^${filter_image}$"; then
-                log_error "SYSTEM" "VALIDATION" "Invalid image in image_filter: $filter_image"
+                log_error "SYSTEM" "-" "VALIDATION" "Invalid image in image_filter: $filter_image"
                 echo "Available images: $IMAGE_DIRS" >&2
                 exit 1
               fi
@@ -126,11 +126,11 @@ jobs:
 
           # Validate skip_images
           if [[ -n "${{ github.event.inputs.skip_images }}" ]]; then
-            log_structured "SYSTEM" "VALIDATION" "Validating skip_images: ${{ github.event.inputs.skip_images }}"
+            log_structured "SYSTEM" "-" "VALIDATION" "Validating skip_images: ${{ github.event.inputs.skip_images }}"
             while IFS=',' read -r skip_image; do
               skip_image=$(echo "$skip_image" | xargs)
               if ! echo "$IMAGE_DIRS" | grep -q "^${skip_image}$"; then
-                log_error "SYSTEM" "VALIDATION" "Invalid image in skip_images: $skip_image"
+                log_error "SYSTEM" "-" "VALIDATION" "Invalid image in skip_images: $skip_image"
                 echo "Available images: $IMAGE_DIRS" >&2
                 exit 1
               fi
@@ -139,22 +139,22 @@ jobs:
 
           # Validate version_override format
           if [[ -n "${{ github.event.inputs.version_override }}" ]]; then
-            log_structured "SYSTEM" "VALIDATION" "Validating version_override format"
+            log_structured "SYSTEM" "-" "VALIDATION" "Validating version_override format"
             while IFS='=' read -r override_image override_version; do
               override_image=$(echo "$override_image" | xargs)
               if ! echo "$IMAGE_DIRS" | grep -q "^${override_image}$"; then
-                log_error "SYSTEM" "VALIDATION" "Invalid image in version_override: $override_image"
+                log_error "SYSTEM" "-" "VALIDATION" "Invalid image in version_override: $override_image"
                 echo "Available images: $IMAGE_DIRS" >&2
                 exit 1
               fi
               if [[ -z "$override_version" ]]; then
-                log_error "SYSTEM" "VALIDATION" "Empty version in version_override for image: $override_image"
+                log_error "SYSTEM" "-" "VALIDATION" "Empty version in version_override for image: $override_image"
                 exit 1
               fi
             done <<< "$(echo "${{ github.event.inputs.version_override }}" | sed 's/,/\n/g')"
           fi
 
-          log_notice "SYSTEM" "VALIDATION" "All workflow_dispatch inputs validated successfully"
+          log_notice "SYSTEM" "-" "VALIDATION" "All workflow_dispatch inputs validated successfully"
 
       - name: Validate rebuild request
         if: github.event.inputs.rebuild_mode == 'true'
@@ -165,11 +165,11 @@ jobs:
           REBUILD_TARGET_VERSION="${{ github.event.inputs.rebuild_target_version }}"
 
           if [[ -z "$REBUILD_TARGET_VERSION" ]]; then
-            log_error "SYSTEM" "REBUILD_VALIDATION" "rebuild_target_version is required when rebuild_mode is enabled"
+            log_error "SYSTEM" "-" "REBUILD_VALIDATION" "rebuild_target_version is required when rebuild_mode is enabled"
             exit 1
           fi
 
-          log_notice "SYSTEM" "REBUILD_VALIDATION" "Rebuild request validated: version=$REBUILD_TARGET_VERSION"
+          log_notice "SYSTEM" "-" "REBUILD_VALIDATION" "Rebuild request validated: version=$REBUILD_TARGET_VERSION"
 
       - name: Checkout historical state
         if: github.event.inputs.rebuild_mode == 'true'
@@ -182,25 +182,25 @@ jobs:
           IMAGE_NAME="${{ github.event.inputs.image_filter }}"
 
           if [[ -z "$IMAGE_NAME" ]]; then
-            log_error "SYSTEM" "REBUILD" "image_filter is required for rebuild mode"
+            log_error "SYSTEM" "-" "REBUILD" "image_filter is required for rebuild mode"
             exit 1
           fi
 
           HISTORY_FILE="${IMAGE_NAME}/history.jsonl"
           if [[ ! -f "$HISTORY_FILE" ]]; then
-            log_error "SYSTEM" "REBUILD" "History file not found: $HISTORY_FILE"
+            log_error "SYSTEM" "-" "REBUILD" "History file not found: $HISTORY_FILE"
             exit 1
           fi
 
           # Get commit SHA for the target version
           COMMIT_SHA=$(jq -r ".commit" "$HISTORY_FILE" | grep -m1 .)
           if [[ -z "$COMMIT_SHA" ]]; then
-            log_error "SYSTEM" "REBUILD" "Could not find commit SHA for version $REBUILD_TARGET_VERSION"
+            log_error "SYSTEM" "-" "REBUILD" "Could not find commit SHA for version $REBUILD_TARGET_VERSION"
             exit 1
           fi
 
           echo "commit_sha=${COMMIT_SHA}" >> $GITHUB_OUTPUT
-          log_notice "SYSTEM" "REBUILD" "Historical state checkout: version=$REBUILD_TARGET_VERSION, commit=$COMMIT_SHA"
+          log_notice "SYSTEM" "-" "REBUILD" "Historical state checkout: version=$REBUILD_TARGET_VERSION, commit=$COMMIT_SHA"
 
       - name: Generate build matrix
         id: set-matrix
@@ -265,7 +265,7 @@ jobs:
           SKIP_TAG_UPDATE="${{ github.event.inputs.skip_tag_update }}"
 
           if [[ "$SKIP_TAG_UPDATE" == "true" ]]; then
-            log_notice "SYSTEM" "REBUILD_TAGS" "Skipping tag update (skip_tag_update=true)"
+            log_notice "SYSTEM" "-" "REBUILD_TAGS" "Skipping tag update (skip_tag_update=true)"
             echo "tags_to_update=" >> $GITHUB_OUTPUT
             exit 0
           fi
@@ -276,7 +276,7 @@ jobs:
           TAGS=$(determine_tags_to_update "$REBUILD_TARGET_VERSION" "$ALL_VERSIONS")
           echo "tags_to_update=$TAGS" >> $GITHUB_OUTPUT
 
-          log_notice "SYSTEM" "REBUILD_TAGS" "Tags to update: $TAGS"
+          log_notice "SYSTEM" "-" "REBUILD_TAGS" "Tags to update: $TAGS"
 
       - name: Generate dry-run summary report
         if: github.event.inputs.dry_run == 'true'
@@ -294,7 +294,7 @@ jobs:
             echo "✓ **No images require building**" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "All images are up to date. No changes detected." >> $GITHUB_STEP_SUMMARY
-            log_notice "SYSTEM" "DRY_RUN" "Dry-run completed: No images require building"
+            log_notice "SYSTEM" "-" "DRY_RUN" "Dry-run completed: No images require building"
             exit 0
           fi
 
@@ -316,7 +316,7 @@ jobs:
           echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
 
-          log_notice "SYSTEM" "DRY_RUN" "Dry-run completed: $IMAGE_COUNT images would build"
+          log_notice "SYSTEM" "-" "DRY_RUN" "Dry-run completed: $IMAGE_COUNT images would build"
 
   build-arch:
     name: Build ${{ matrix.config.image.name }}:${{ matrix.config.image.variant }} (${{ matrix.config.arch }})
