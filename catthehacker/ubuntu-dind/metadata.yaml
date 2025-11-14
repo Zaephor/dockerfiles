@@ -5,9 +5,9 @@ version_source:
   # Watch the act-24.04 tag for version changes
   # Both variants will rebuild when this changes
   # TODO: Enhance to track each variant independently via SHA256
-  docker_image: ghcr.io/catthehacker/ubuntu
-  tag_pattern: "^act-24\\.04$"
   registry: ghcr.io
+  image: catthehacker/ubuntu
+  tag_filter: "^act-24\\.04$"
 
 # NOTE: The variants field below is currently documentation-only
 # The system auto-discovers variants by scanning for Dockerfile.* files
