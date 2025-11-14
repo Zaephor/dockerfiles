@@ -875,6 +875,12 @@ jobs:
               # Create manifest using merge-manifest.sh script
               image_repo="ghcr.io/${GHCR_REPO}/${image_name}"
 
+              # Read image README for GHCR package page (if exists)
+              image_readme_b64=""
+              if [ -f "${image_name}/README.md" ]; then
+                image_readme_b64=$(cat "${image_name}/README.md" | base64 -w0)
+              fi
+
               echo ""
               echo "Processing: ${image_name} (variant: ${variant_name})"
               echo "  amd64: ${amd64_status} (${amd64_digest:0:12}...)"
@@ -889,6 +895,7 @@ jobs:
                 --amd64-status "${amd64_status}" \
                 --arm64-digest "${arm64_digest}" \
                 --arm64-status "${arm64_status}" \
+                --readme-b64 "${image_readme_b64}" \
                 --verify
 
               # Create manifest for branch name tag
@@ -900,6 +907,7 @@ jobs:
                 --amd64-status "${amd64_status}" \
                 --arm64-digest "${arm64_digest}" \
                 --arm64-status "${arm64_status}" \
+                --readme-b64 "${image_readme_b64}" \
                 --verify
 
               # T022: Generate variant-specific tags using tag-builder.sh
@@ -944,6 +952,7 @@ jobs:
                         --amd64-status "${amd64_status}" \
                         --arm64-digest "${arm64_digest}" \
                         --arm64-status "${arm64_status}" \
+                        --readme-b64 "${image_readme_b64}" \
                         --verify || {
                         echo "WARNING: Failed to create manifest for variant tag: ${tag}"
                       }

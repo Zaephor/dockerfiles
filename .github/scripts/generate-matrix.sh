@@ -436,10 +436,22 @@ generate_matrix() {
             continue
         fi
 
+        # Detect version for this image before build decision
+        local detected_version=""
+        local config_file="${image_dir}/metadata.yaml"
+        if [[ -f "$config_file" ]]; then
+            # Call version-detection.sh to detect version
+            local version_result
+            if version_result=$("${REPO_ROOT}/.github/scripts/version-detection.sh" --config "$config_file" --image-name "$image_name" 2>/dev/null); then
+                detected_version=$(echo "$version_result" | jq -r '.version // ""' 2>/dev/null || echo "")
+            fi
+        fi
+
+        # If version detection failed or no config, detected_version remains empty
+        # Empty version will trigger build due to no history comparison
+
         # Call should_build_image() from Sprint 4b
         # This function determines if the image needs building based on version history and file changes
-        # Note: Version detection is handled separately in version-detection workflow
-        # For now, pass empty version and let should_build_image handle it
         local build_decision
         local error_output
         error_output=$(mktemp) || {
@@ -448,8 +460,8 @@ generate_matrix() {
             continue
         }
 
-        # Capture build decision with error output to temp file
-        if ! build_decision=$(should_build_image "$image_name" "$REPO_ROOT" "" 2>"$error_output"); then
+        # Capture build decision with error output to temp file (pass detected version)
+        if ! build_decision=$(should_build_image "$image_name" "$REPO_ROOT" "$detected_version" 2>"$error_output"); then
             # Capture actual error from should_build_image
             local error_msg
             error_msg=$(cat "$error_output" 2>/dev/null || echo "Unknown error")

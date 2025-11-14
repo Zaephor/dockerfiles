@@ -9,6 +9,7 @@
 #     --amd64-status STATUS \
 #     --arm64-digest DIGEST \
 #     --arm64-status STATUS \
+#     [--readme-b64 BASE64_ENCODED_README] \
 #     [--verify]
 #
 # Description:
@@ -49,6 +50,7 @@ AMD64_DIGEST=""
 AMD64_STATUS=""
 ARM64_DIGEST=""
 ARM64_STATUS=""
+README_B64=""
 VERIFY=false
 
 # Color codes for output
@@ -161,6 +163,10 @@ parse_args() {
         ;;
       --arm64-status)
         ARM64_STATUS="$2"
+        shift 2
+        ;;
+      --readme-b64)
+        README_B64="$2"
         shift 2
         ;;
       --verify)
@@ -314,11 +320,26 @@ create_manifest() {
     warn "Creating single-architecture manifest (arm64 only - graceful degradation)"
   fi
 
+  # Prepare annotation arguments if README provided
+  local annotation_args=()
+  if [[ -n "$README_B64" ]]; then
+    # Decode base64 README content
+    local readme_content
+    if readme_content=$(echo "$README_B64" | base64 -d 2>/dev/null); then
+      # Convert to single line, collapse multiple spaces, truncate to 1000 chars
+      local description
+      description=$(echo "$readme_content" | tr '\n' ' ' | sed 's/  */ /g' | head -c 1000)
+
+      # Add as OCI annotation to manifest
+      annotation_args+=(--annotation "org.opencontainers.image.description=${description}")
+    fi
+  fi
+
   # Create manifest using docker buildx imagetools
   info "Manifest tag: $manifest_tag"
   info "Source digests: ${digest_args[*]}"
 
-  if docker buildx imagetools create -t "$manifest_tag" "${digest_args[@]}"; then
+  if docker buildx imagetools create -t "$manifest_tag" "${annotation_args[@]}" "${digest_args[@]}"; then
     info "Manifest created successfully: $manifest_tag"
     return 0
   else
