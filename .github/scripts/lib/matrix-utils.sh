@@ -266,3 +266,54 @@ matrix_validate_tools() {
 
     return 0
 }
+
+# ============================================================================
+# Matrix Expansion: Expand image entries to image+architecture combinations
+# ============================================================================
+
+# Expands matrix JSON to create separate entries for each architecture
+#
+# Takes a matrix in {"image":[...]} format where each image has an architectures array,
+# and expands it to create one entry per (image, architecture) combination.
+#
+# Parameters:
+#   $1 - Matrix JSON string in {"image":[...]} format
+#
+# Outputs:
+#   Expanded matrix in {"config":[...]} format for GitHub Actions
+#
+# Returns:
+#   Exit 0: Success
+#   Exit 1: jq error or invalid input
+matrix_expand_for_architectures() {
+    local matrix_json="$1"
+
+    if [[ -z "$matrix_json" ]]; then
+        echo "ERROR: matrix_json is required" >&2
+        return 1
+    fi
+
+    # Expand each image entry to create separate entries for each architecture
+    # Each entry gets: image (original), arch, platform (linux/arch), runs-on (runner type)
+    local expanded
+    expanded=$(echo "$matrix_json" | jq -c '
+        .image | map(
+            . as $img |
+            (.architectures // ["amd64", "arm64"]) | map({
+                image: $img,
+                arch: .,
+                platform: (if . == "amd64" then "linux/amd64" elif . == "arm64" then "linux/arm64" else "linux/\(.)" end),
+                "runs-on": (if . == "amd64" then "ubuntu-latest" elif . == "arm64" then "ubuntu-24.04-arm" else "ubuntu-latest" end)
+            })
+        ) | flatten | {config: .}
+    ' 2>/dev/null)
+
+    local exit_code=$?
+    if [[ $exit_code -ne 0 ]]; then
+        echo "ERROR: Failed to expand matrix for architectures" >&2
+        return 1
+    fi
+
+    echo "$expanded"
+    return 0
+}

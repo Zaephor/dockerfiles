@@ -190,18 +190,9 @@ jobs:
         env:
           MATRIX_JSON: ${{ steps.set-matrix.outputs.matrix }}
         run: |
-          # Expand each image entry to create separate entries for each architecture
-          EXPANDED=$(echo "$MATRIX_JSON" | jq -c '
-            .image | map(
-              . as $img |
-              (.architectures // ["amd64", "arm64"]) | map({
-                image: $img,
-                arch: .,
-                platform: (if . == "amd64" then "linux/amd64" elif . == "arm64" then "linux/arm64" else "linux/\(.)" end),
-                "runs-on": (if . == "amd64" then "ubuntu-latest" elif . == "arm64" then "ubuntu-24.04-arm" else "ubuntu-latest" end)
-              })
-            ) | flatten | {config: .}
-          ')
+          source .github/scripts/lib/matrix-utils.sh
+
+          EXPANDED=$(matrix_expand_for_architectures "$MATRIX_JSON")
 
           echo "expanded-matrix=$EXPANDED" >> $GITHUB_OUTPUT
           echo "Expanded matrix: $EXPANDED"
