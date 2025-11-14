@@ -1075,13 +1075,12 @@ jobs:
 
           # Create commit with summary
           COMMIT_COUNT=$(git diff --cached --numstat | wc -l)
-          git commit -m "chore: update build history
-
-- Updated history for $COMMIT_COUNT image(s)
-- Build ID: ${{ github.run_id }}
-- Triggered by: ${{ github.event_name }}
-
-🤖 Generated with [GitHub Actions](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+          git commit -m "chore: update build history" \
+            -m "Updated history for $COMMIT_COUNT image(s)" \
+            -m "Build ID: ${{ github.run_id }}" \
+            -m "Triggered by: ${{ github.event_name }}" \
+            -m "" \
+            -m "🤖 Generated with GitHub Actions"
 
           # Push changes
           git push
