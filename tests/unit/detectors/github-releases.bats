@@ -28,7 +28,7 @@ teardown() {
 # ============================================================================
 
 @test "github-releases detector accepts --config and --image-name" {
-  run .github/scripts/detectors/github-releases.sh \
+  run .github/scripts/detectors/github_releases.sh \
     --config "$TEST_CONFIG" \
     --image-name test-image
   # Should exit 0, 1, or 2 (valid detector behavior)
@@ -36,14 +36,14 @@ teardown() {
 }
 
 @test "github-releases detector requires --config argument" {
-  run .github/scripts/detectors/github-releases.sh \
+  run .github/scripts/detectors/github_releases.sh \
     --image-name test-image
   [[ $status -eq 2 ]]
   [[ "$output" =~ "Missing required arguments" ]]
 }
 
 @test "github-releases detector requires --image-name argument" {
-  run .github/scripts/detectors/github-releases.sh \
+  run .github/scripts/detectors/github_releases.sh \
     --config "$TEST_CONFIG"
   [[ $status -eq 2 ]]
   [[ "$output" =~ "Missing required arguments" ]]
@@ -59,7 +59,7 @@ teardown() {
 version_source:
   type: github-releases
 EOF
-  run .github/scripts/detectors/github-releases.sh \
+  run .github/scripts/detectors/github_releases.sh \
     --config "$no_repo_config" \
     --image-name test-image
   [[ $status -eq 2 ]]
@@ -73,7 +73,7 @@ version_source:
   type: github-releases
   repo: invalid-repo-format
 EOF
-  run .github/scripts/detectors/github-releases.sh \
+  run .github/scripts/detectors/github_releases.sh \
     --config "$invalid_repo_config" \
     --image-name test-image
   [[ $status -eq 2 ]]
@@ -87,7 +87,7 @@ version_source:
   type: github-releases
   repo: owner/valid-project-name
 EOF
-  run .github/scripts/detectors/github-releases.sh \
+  run .github/scripts/detectors/github_releases.sh \
     --config "$valid_config" \
     --image-name test-image
   # Should proceed past config validation
@@ -103,7 +103,7 @@ version_source:
   repo: owner/test
   prerelease_filter: true
 EOF
-  run .github/scripts/detectors/github-releases.sh \
+  run .github/scripts/detectors/github_releases.sh \
     --config "$prerelease_config" \
     --image-name test-image
   # Should proceed past config validation
@@ -115,21 +115,21 @@ EOF
 # ============================================================================
 
 @test "github-releases detector outputs valid JSON" {
-  run .github/scripts/detectors/github-releases.sh \
+  run .github/scripts/detectors/github_releases.sh \
     --config "$TEST_CONFIG" \
     --image-name test-image
   echo "$output" | jq . >/dev/null
 }
 
 @test "github-releases detector includes detector field" {
-  run .github/scripts/detectors/github-releases.sh \
+  run .github/scripts/detectors/github_releases.sh \
     --config "$TEST_CONFIG" \
     --image-name test-image
   echo "$output" | jq -e '.detector == "github-releases"' >/dev/null
 }
 
 @test "github-releases detector includes status field" {
-  run .github/scripts/detectors/github-releases.sh \
+  run .github/scripts/detectors/github_releases.sh \
     --config "$TEST_CONFIG" \
     --image-name test-image
   echo "$output" | jq -e '.status' >/dev/null
@@ -145,7 +145,7 @@ EOF
 version_source:
   type: github-releases
 EOF
-  run .github/scripts/detectors/github-releases.sh \
+  run .github/scripts/detectors/github_releases.sh \
     --config "$no_repo" \
     --image-name test-image
   [[ $status -eq 2 ]]
@@ -160,7 +160,7 @@ version_source:
   type: github-releases
   repo: definitely-not-real-org/definitely-not-real-repo-xyz123abc
 EOF
-  run .github/scripts/detectors/github-releases.sh \
+  run .github/scripts/detectors/github_releases.sh \
     --config "$bad_repo" \
     --image-name test-image
   [[ $status -eq 1 ]]
@@ -189,7 +189,7 @@ EOF
 # ============================================================================
 
 @test "github-releases detector exits 0/1/2 on any execution" {
-  run .github/scripts/detectors/github-releases.sh \
+  run .github/scripts/detectors/github_releases.sh \
     --config "$TEST_CONFIG" \
     --image-name test-image
   [[ $status -eq 0 || $status -eq 1 || $status -eq 2 ]]
@@ -201,7 +201,7 @@ EOF
 version_source:
   type: github-releases
 EOF
-  run .github/scripts/detectors/github-releases.sh \
+  run .github/scripts/detectors/github_releases.sh \
     --config "$bad_config" \
     --image-name test-image
   [[ $status -eq 2 ]]
@@ -214,7 +214,7 @@ version_source:
   type: github-releases
   repo: nonexistent/repo-xyz123
 EOF
-  run .github/scripts/detectors/github-releases.sh \
+  run .github/scripts/detectors/github_releases.sh \
     --config "$bad_repo" \
     --image-name test-image
   [[ $status -eq 1 ]]
@@ -231,7 +231,7 @@ version_source:
   type: github-releases
   repo: nonexistent/repo-xyz123
 EOF
-  run .github/scripts/detectors/github-releases.sh \
+  run .github/scripts/detectors/github_releases.sh \
     --config "$bad_repo" \
     --image-name test-image
   echo "$output" | jq -e '.error' >/dev/null
@@ -244,7 +244,7 @@ version_source:
   type: github-releases
   repo: nonexistent/repo-xyz123
 EOF
-  run .github/scripts/detectors/github-releases.sh \
+  run .github/scripts/detectors/github_releases.sh \
     --config "$bad_repo" \
     --image-name test-image
   echo "$output" | jq -e '.error_code' >/dev/null
@@ -257,7 +257,7 @@ version_source:
   type: github-releases
   repo: nonexistent/repo-xyz123
 EOF
-  run .github/scripts/detectors/github-releases.sh \
+  run .github/scripts/detectors/github_releases.sh \
     --config "$bad_repo" \
     --image-name test-image
   echo "$output" | jq -e '.version == null' >/dev/null
