@@ -1,34 +1,28 @@
 #!/bin/bash
 set -e
 
-# Use /tmp for logs (writable by non-root users)
 DOCKER_LOG="/tmp/docker.log"
 
-# Check if Docker daemon is already running
-if ! pgrep -x dockerd > /dev/null; then
-    # Check if running as root (required for Docker daemon)
-    if [ "$(id -u)" -ne 0 ]; then
-        echo "WARNING: Not running as root (current user: $(id -un), uid: $(id -u))"
-        echo "WARNING: Docker daemon requires root privileges and --privileged mode"
-        echo "WARNING: Skipping Docker daemon startup"
-        echo ""
-        echo "To use Docker-in-Docker, run with:"
-        echo "  docker run --privileged --user root ..."
-        echo "  OR"
-        echo "  In GitHub Actions: options: --privileged"
-        echo ""
-        echo "Continuing without Docker daemon..."
-    else
+# Create host-matching group if needed
+if ! getent group "$HOST_GID" >/dev/null; then
+    groupadd -g "$HOST_GID" hostgroup
+fi
+
+# Create host-matching user if needed
+if ! id -u "$HOST_UID" >/dev/null 2>&1; then
+    useradd -m -u "$HOST_UID" -g "$HOST_GID" hostuser
+fi
+
+# Start dockerd only when running as root
+if [ "$(id -u)" -eq 0 ]; then
+    if ! pgrep -x dockerd >/dev/null; then
         echo "Starting Docker daemon..."
 
-        # Start dockerd in the background
-        # Storage driver and other options are configured in /etc/docker/daemon.json
         dockerd \
             --host=unix:///var/run/docker.sock \
             --host=tcp://0.0.0.0:2375 \
             > "$DOCKER_LOG" 2>&1 &
 
-        # Wait for Docker to be ready
         echo "Waiting for Docker to be ready..."
         timeout=30
         while ! docker info >/dev/null 2>&1; do
@@ -36,19 +30,15 @@ if ! pgrep -x dockerd > /dev/null; then
             timeout=$((timeout - 1))
             if [ $timeout -le 0 ]; then
                 echo "ERROR: Docker daemon failed to start within 30 seconds"
-                if [ -f "$DOCKER_LOG" ]; then
-                    echo "--- Docker daemon logs ---"
-                    cat "$DOCKER_LOG"
-                fi
+                cat "$DOCKER_LOG"
                 exit 1
             fi
         done
-
         echo "Docker daemon is ready"
     fi
 else
-    echo "Docker daemon already running"
+    echo "Not root; skipping dockerd startup"
 fi
 
-# Execute the provided command
-exec "$@"
+# Drop to host user for the actual workload
+exec gosu "$HOST_UID:$HOST_GID" "$@"
