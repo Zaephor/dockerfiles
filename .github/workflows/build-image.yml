@@ -104,57 +104,11 @@ jobs:
 
       - name: Validate workflow dispatch inputs
         run: |
-          # Source logging library
-          source .github/scripts/lib/logging.sh
-
-          # Validate image names provided in workflow_dispatch inputs
-          # Extract all image directories for validation
-          IMAGE_DIRS=$(find . -maxdepth 1 -type d -name '[^.].*' ! -name '.github' ! -name 'docs' ! -name 'research' ! -name 'specs' ! -name 'tests' | sed 's|^\./||' | sort)
-
-          # Validate image_filter
-          if [[ -n "${{ github.event.inputs.image_filter }}" ]]; then
-            log_structured "SYSTEM" "-" "VALIDATION" "Validating image_filter: ${{ github.event.inputs.image_filter }}"
-            while IFS=',' read -r filter_image; do
-              filter_image=$(echo "$filter_image" | xargs)
-              if ! echo "$IMAGE_DIRS" | grep -q "^${filter_image}$"; then
-                log_error "SYSTEM" "-" "VALIDATION" "Invalid image in image_filter: $filter_image"
-                echo "Available images: $IMAGE_DIRS" >&2
-                exit 1
-              fi
-            done <<< "${{ github.event.inputs.image_filter }}"
-          fi
-
-          # Validate skip_images
-          if [[ -n "${{ github.event.inputs.skip_images }}" ]]; then
-            log_structured "SYSTEM" "-" "VALIDATION" "Validating skip_images: ${{ github.event.inputs.skip_images }}"
-            while IFS=',' read -r skip_image; do
-              skip_image=$(echo "$skip_image" | xargs)
-              if ! echo "$IMAGE_DIRS" | grep -q "^${skip_image}$"; then
-                log_error "SYSTEM" "-" "VALIDATION" "Invalid image in skip_images: $skip_image"
-                echo "Available images: $IMAGE_DIRS" >&2
-                exit 1
-              fi
-            done <<< "${{ github.event.inputs.skip_images }}"
-          fi
-
-          # Validate version_override format
-          if [[ -n "${{ github.event.inputs.version_override }}" ]]; then
-            log_structured "SYSTEM" "-" "VALIDATION" "Validating version_override format"
-            while IFS='=' read -r override_image override_version; do
-              override_image=$(echo "$override_image" | xargs)
-              if ! echo "$IMAGE_DIRS" | grep -q "^${override_image}$"; then
-                log_error "SYSTEM" "-" "VALIDATION" "Invalid image in version_override: $override_image"
-                echo "Available images: $IMAGE_DIRS" >&2
-                exit 1
-              fi
-              if [[ -z "$override_version" ]]; then
-                log_error "SYSTEM" "-" "VALIDATION" "Empty version in version_override for image: $override_image"
-                exit 1
-              fi
-            done <<< "$(echo "${{ github.event.inputs.version_override }}" | sed 's/,/\n/g')"
-          fi
-
-          log_structured "SYSTEM" "-" "VALIDATION" "All workflow_dispatch inputs validated successfully"
+          ./.github/scripts/validate-workflow-inputs.sh \
+            --image-filter "${{ github.event.inputs.image_filter }}" \
+            --skip-images "${{ github.event.inputs.skip_images }}" \
+            --version-override "${{ github.event.inputs.version_override }}" \
+            --repo-root .
 
       - name: Validate rebuild request
         if: github.event.inputs.rebuild_mode == 'true'
