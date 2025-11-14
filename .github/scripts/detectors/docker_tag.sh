@@ -302,7 +302,14 @@ detect_version() {
   local config_output
   config_output=$(parse_docker_config "$config_file") || return 2
 
-  read -r registry image tag_filter auth_token_secret <<< "$config_output"
+  # Read multi-line output (one variable per line)
+  local registry image tag_filter auth_token_secret
+  {
+    read -r registry
+    read -r image
+    read -r tag_filter
+    read -r auth_token_secret
+  } <<< "$config_output"
 
   echo "INFO: Detecting Docker tags version from: $registry/$image" >&2
 
