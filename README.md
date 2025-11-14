@@ -244,6 +244,36 @@ See [docs/adr/](docs/adr/) directory for complete ADRs.
 - Git
 - jq, yq, hadolint
 - BATS (for testing)
+- pre-commit (for code quality hooks)
+
+### Setup Pre-commit Hooks
+
+This project uses pre-commit hooks to enforce code quality before commits. To enable them:
+
+```bash
+# Install pre-commit (choose one)
+pip install pre-commit
+# OR
+brew install pre-commit  # macOS
+# OR
+sudo apt install pre-commit  # Ubuntu/Debian
+
+# Install the git hook scripts
+pre-commit install
+
+# (Optional) Run against all files initially
+pre-commit run --all-files
+```
+
+Once installed, hooks will run automatically on `git commit`. See [docs/pre-commit-hooks.md](docs/pre-commit-hooks.md) for details on what's checked and how to use the hooks.
+
+**What gets checked automatically:**
+- GitHub Actions workflows (actionlint)
+- Dockerfiles (hadolint)
+- Shell scripts (shellcheck)
+- YAML files (yamllint)
+- Markdown documentation (markdownlint)
+- Trailing whitespace, line endings, etc.
 
 ### Run Tests
 

@@ -10,13 +10,12 @@
 #     --arch ARCH \
 #     --image-repo REPO \
 #     --cache-tag CACHE \
-#     --readme-b64 README_BASE64 \
 #     --source-url URL \
 #     --revision SHA
 #
 # Description:
 #   Builds a Docker image using buildx with proper caching, labels, and
-#   push-by-digest. Handles complex README content safely via base64 encoding.
+#   push-by-digest.
 #
 # Exit Codes:
 #   0 - Success
@@ -35,7 +34,6 @@ VARIANT=""
 ARCH=""
 IMAGE_REPO=""
 CACHE_TAG=""
-README_B64=""
 SOURCE_URL=""
 REVISION=""
 
@@ -86,10 +84,6 @@ parse_args() {
         CACHE_TAG="$2"
         shift 2
         ;;
-      --readme-b64)
-        README_B64="$2"
-        shift 2
-        ;;
       --source-url)
         SOURCE_URL="$2"
         shift 2
@@ -136,20 +130,6 @@ build_image() {
     --label "org.opencontainers.image.source=${SOURCE_URL}"
     --label "org.opencontainers.image.revision=${REVISION}"
   )
-
-  # Add description label if README provided
-  if [[ -n "$README_B64" ]]; then
-    # Decode base64 README content
-    local readme_content
-    if readme_content=$(echo "$README_B64" | base64 -d 2>/dev/null); then
-      # Convert to single line, collapse multiple spaces, truncate to 1000 chars
-      local description
-      description=$(echo "$readme_content" | tr '\n' ' ' | sed 's/  */ /g' | head -c 1000)
-
-      # Add as label (array handles quoting automatically)
-      buildx_args+=(--label "org.opencontainers.image.description=${description}")
-    fi
-  fi
 
   # Add final args
   buildx_args+=(

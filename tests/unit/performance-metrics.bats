@@ -170,7 +170,7 @@ Cache HIT for layer 3"
 @test "is_cache_hit_low: uses default 50% threshold" {
   run is_cache_hit_low 0.40
   [ "$status" -eq 0 ]  # Low
-  
+
   run is_cache_hit_low 0.60
   [ "$status" -eq 1 ]  # Acceptable
 }
@@ -193,7 +193,7 @@ Cache HIT for layer 3"
 @test "is_image_size_increased: uses default 20% threshold" {
   run is_image_size_increased 25
   [ "$status" -eq 0 ]  # Exceeds default
-  
+
   run is_image_size_increased 15
   [ "$status" -eq 1 ]  # Within default
 }

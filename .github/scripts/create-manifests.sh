@@ -246,12 +246,6 @@ create_all_manifests() {
       image_repo="ghcr.io/${ghcr_repo}/${image_name}"
     fi
 
-    # Read image README for GHCR package page (if exists)
-    local image_readme_b64=""
-    if [ -f "${WORKSPACE}/${image_name}/README.md" ]; then
-      image_readme_b64=$(cat "${WORKSPACE}/${image_name}/README.md" | base64 -w0)
-    fi
-
     echo ""
     echo "Processing: ${image_name} (variant: ${variant_name})"
     echo "  amd64: ${amd64_status} (${amd64_digest:0:12}...)"
@@ -264,14 +258,8 @@ create_all_manifests() {
       --amd64-status "${amd64_status}"
       --arm64-digest "${arm64_digest}"
       --arm64-status "${arm64_status}"
+      --verify
     )
-
-    # Only add README if we have one
-    if [ -n "$image_readme_b64" ]; then
-      manifest_args+=(--readme-b64 "${image_readme_b64}")
-    fi
-
-    manifest_args+=(--verify)
 
     # Create manifest for commit SHA tag
     echo "Creating manifest for ${image_repo}:${COMMIT_SHA}..."

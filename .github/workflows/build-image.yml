@@ -322,16 +322,8 @@ jobs:
           CACHE_IMAGE_NAME="${IMAGE_NAME//\//_}"
           CACHE_TAG="ghcr.io/${GHCR_REPO}/buildcache:${CACHE_IMAGE_NAME}-${ARCH}"
 
-          # Read image README for package description (if exists)
-          # Use base64 encoding to safely pass through GitHub Actions outputs
-          IMAGE_DESCRIPTION_B64=""
-          if [ -f "${IMAGE_NAME}/README.md" ]; then
-            IMAGE_DESCRIPTION_B64=$(cat "${IMAGE_NAME}/README.md" | base64 -w0)
-          fi
-
           echo "image_repo=${IMAGE_REPO}" >> $GITHUB_OUTPUT
           echo "cache_tag=${CACHE_TAG}" >> $GITHUB_OUTPUT
-          echo "image_description_b64=${IMAGE_DESCRIPTION_B64}" >> $GITHUB_OUTPUT
 
           log_structured "${{ matrix.config.image.name }}" "${{ matrix.config.arch }}" "BUILD_CONFIG" "Image: ${IMAGE_NAME}, Version: ${{ matrix.config.image.version }}, Platform: ${{ matrix.config.platform }}, Reason: ${{ matrix.config.image.reason }}"
 
@@ -355,7 +347,6 @@ jobs:
               --arch "${{ matrix.config.arch }}" \
               --image-repo "${{ steps.meta.outputs.image_repo }}" \
               --cache-tag "${{ steps.meta.outputs.cache_tag }}" \
-              --readme-b64 "${{ steps.meta.outputs.image_description_b64 }}" \
               --source-url "${{ github.server_url }}/${{ github.repository }}" \
               --revision "${{ github.sha }}"
 
