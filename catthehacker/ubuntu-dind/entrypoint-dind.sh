@@ -3,14 +3,36 @@ set -e
 
 DOCKER_LOG="/tmp/docker.log"
 
-# Create host-matching group if needed
-if ! getent group "$HOST_GID" >/dev/null; then
-    groupadd -g "$HOST_GID" hostgroup
+# Determine or create host-aligned user inside container
+
+# If UID exists, resolve its username
+if id -u "$HOST_UID" >/dev/null 2>&1; then
+    EXISTING_USER=$(getent passwd "$HOST_UID" | cut -d: -f1)
+    USERNAME="$EXISTING_USER"
+else
+    # Create group if needed
+    if ! getent group "$HOST_GID" >/dev/null; then
+        groupadd -g "$HOST_GID" hostgroup
+    fi
+
+    # Create new user
+    USERNAME="hostuser"
+    useradd -m -u "$HOST_UID" -g "$HOST_GID" "$USERNAME"
 fi
 
-# Create host-matching user if needed
-if ! id -u "$HOST_UID" >/dev/null 2>&1; then
-    useradd -m -u "$HOST_UID" -g "$HOST_GID" hostuser
+# Ensure user's primary GID matches host group
+USER_GID=$(id -g "$USERNAME")
+if [ "$USER_GID" -ne "$HOST_GID" ]; then
+    # If HOST_GID does not exist, create it
+    if ! getent group "$HOST_GID" >/dev/null; then
+        groupadd -g "$HOST_GID" hostgroup
+    fi
+    usermod -g "$HOST_GID" "$USERNAME"
+fi
+
+# Add user to docker group if present
+if getent group docker >/dev/null; then
+    usermod -aG docker "$USERNAME"
 fi
 
 # Start dockerd only when running as root
@@ -41,4 +63,4 @@ else
 fi
 
 # Drop to host user for the actual workload
-exec gosu "$HOST_UID:$HOST_GID" "$@"
+exec gosu "$USERNAME" "$@"
