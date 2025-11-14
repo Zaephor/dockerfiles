@@ -371,8 +371,9 @@ jobs:
           # Image repository without tag (for push-by-digest)
           IMAGE_REPO="ghcr.io/${GHCR_REPO}/${IMAGE_NAME}"
 
-          # Architecture-specific cache tags
-          CACHE_TAG="ghcr.io/${GHCR_REPO}/${IMAGE_NAME}-buildcache-${ARCH}"
+          # Consolidated cache image with tag per image/arch/variant
+          # All cache layers stored in single "buildcache" package
+          CACHE_TAG="ghcr.io/${GHCR_REPO}/buildcache:${IMAGE_NAME}-${ARCH}"
 
           echo "image_repo=${IMAGE_REPO}" >> $GITHUB_OUTPUT
           echo "cache_tag=${CACHE_TAG}" >> $GITHUB_OUTPUT
