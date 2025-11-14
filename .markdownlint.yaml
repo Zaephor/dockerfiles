@@ -1,0 +1,40 @@
+# Markdown linting configuration
+# See https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md
+
+# Default state for all rules
+default: true
+
+# MD013: Line length
+MD013:
+  line_length: 120
+  heading_line_length: 120
+  code_block_line_length: 150
+  code_blocks: false
+  tables: false
+  headings: true
+  strict: false
+  stern: false
+
+# MD033: Allow inline HTML (useful for badges, alignment, etc)
+MD033: false
+
+# MD034: Allow bare URLs (useful in documentation)
+MD034: false
+
+# MD041: First line in file should be a top level heading (relaxed for READMEs)
+MD041: false
+
+# MD046: Code block style (allow both fenced and indented)
+MD046:
+  style: consistent
+
+# MD024: Allow duplicate headings (common in changelog/docs)
+MD024:
+  allow_different_nesting: true
+
+# MD025: Multiple top level headings (allow for docs with sections)
+MD025: false
+
+# MD029: Ordered list item prefix (allow any style)
+MD029:
+  style: any

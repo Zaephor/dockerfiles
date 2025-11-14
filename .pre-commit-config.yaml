@@ -1,0 +1,79 @@
+# Pre-commit hooks configuration
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+
+repos:
+  # General file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: '\.patch$'
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: ['--unsafe']  # Allow custom YAML tags
+        exclude: '.github/workflows/.*\.yml$'  # Skip workflows (actionlint handles these)
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: mixed-line-ending
+        args: ['--fix=lf']
+      - id: check-executables-have-shebangs
+      - id: check-shebang-scripts-are-executable
+
+  # YAML linting (for metadata.yaml and other config files)
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.35.1
+    hooks:
+      - id: yamllint
+        args: ['-c', '.yamllint.yaml']
+        exclude: '.github/workflows/.*\.yml$'  # Skip workflows (actionlint handles these)
+
+  # GitHub Actions workflow linting
+  - repo: https://github.com/rhysd/actionlint
+    rev: v1.6.27
+    hooks:
+      - id: actionlint
+        name: Lint GitHub Actions workflows
+        description: Validates GitHub Actions workflow files (syntax, context vars, expressions)
+        files: '^\.github/workflows/.*\.ya?ml$'
+
+  # Dockerfile linting
+  - repo: https://github.com/hadolint/hadolint
+    rev: v2.12.0
+    hooks:
+      - id: hadolint-docker
+        name: Lint Dockerfiles
+        description: Validates Dockerfile syntax and best practices
+        args: ['--config', '.hadolint.yaml']
+
+  # Shell script linting
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.9.0.6
+    hooks:
+      - id: shellcheck
+        name: Lint shell scripts
+        description: Validates bash/sh scripts for errors and style issues
+        args: ['--severity=warning']  # Only warn on issues (not info)
+        exclude: 'node_modules/|\.git/'
+
+  # Markdown linting
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.39.0
+    hooks:
+      - id: markdownlint
+        name: Lint Markdown files
+        args: ['--config', '.markdownlint.yaml']
+
+# Global settings
+default_language_version:
+  python: python3
+
+# Skip these hooks for specific files
+exclude: |
+  (?x)^(
+    .*\.patch$|
+    node_modules/|
+    \.git/
+  )$

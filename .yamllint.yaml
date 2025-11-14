@@ -1,0 +1,52 @@
+---
+# YAML linting configuration
+# See https://yamllint.readthedocs.io/en/stable/rules.html
+
+extends: default
+
+rules:
+  # Allow longer lines (workflows often have long strings)
+  line-length:
+    max: 200
+    level: warning
+
+  # Allow inline mappings (common in metadata.yaml)
+  braces:
+    min-spaces-inside: 0
+    max-spaces-inside: 1
+
+  # Allow inline sequences
+  brackets:
+    min-spaces-inside: 0
+    max-spaces-inside: 1
+
+  # Be flexible with indentation
+  indentation:
+    spaces: 2
+    indent-sequences: true
+    check-multi-line-strings: false
+
+  # Don't require document start marker (---)
+  document-start: disable
+
+  # Allow duplicate keys (can happen in examples)
+  key-duplicates: enable
+
+  # Allow empty values
+  empty-values:
+    forbid-in-block-mappings: false
+    forbid-in-flow-mappings: false
+
+  # Allow truthy values (yes/no/on/off)
+  truthy:
+    allowed-values: ['true', 'false', 'yes', 'no', 'on', 'off']
+    check-keys: false
+
+  # Allow comments to be indented
+  comments:
+    min-spaces-from-content: 1
+
+ignore: |
+  .github/workflows/
+  node_modules/
+  specs/
