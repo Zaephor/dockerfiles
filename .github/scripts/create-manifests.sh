@@ -227,29 +227,33 @@ create_all_manifests() {
     echo "  amd64: ${amd64_status} (${amd64_digest:0:12}...)"
     echo "  arm64: ${arm64_status} (${arm64_digest:0:12}...)"
 
+    # Build common manifest args
+    local manifest_args=(
+      --image "${image_repo}"
+      --amd64-digest "${amd64_digest}"
+      --amd64-status "${amd64_status}"
+      --arm64-digest "${arm64_digest}"
+      --arm64-status "${arm64_status}"
+    )
+
+    # Only add README if we have one
+    if [ -n "$image_readme_b64" ]; then
+      manifest_args+=(--readme-b64 "${image_readme_b64}")
+    fi
+
+    manifest_args+=(--verify)
+
     # Create manifest for commit SHA tag
     echo "Creating manifest for ${image_repo}:${COMMIT_SHA}..."
     "${SCRIPT_DIR}/merge-manifest.sh" \
-      --image "${image_repo}" \
       --tag "${COMMIT_SHA}" \
-      --amd64-digest "${amd64_digest}" \
-      --amd64-status "${amd64_status}" \
-      --arm64-digest "${arm64_digest}" \
-      --arm64-status "${arm64_status}" \
-      --readme-b64 "${image_readme_b64}" \
-      --verify
+      "${manifest_args[@]}"
 
     # Create manifest for branch name tag
     echo "Creating manifest for ${image_repo}:${branch_tag}..."
     "${SCRIPT_DIR}/merge-manifest.sh" \
-      --image "${image_repo}" \
       --tag "${branch_tag}" \
-      --amd64-digest "${amd64_digest}" \
-      --amd64-status "${amd64_status}" \
-      --arm64-digest "${arm64_digest}" \
-      --arm64-status "${arm64_status}" \
-      --readme-b64 "${image_readme_b64}" \
-      --verify
+      "${manifest_args[@]}"
 
     # Generate variant-specific tags using tag-builder.sh
     if [ "$variant_name" != "default" ]; then
@@ -288,14 +292,8 @@ create_all_manifests() {
 
             echo "Creating manifest for variant tag: ${tag}..."
             "${SCRIPT_DIR}/merge-manifest.sh" \
-              --image "${image_repo}" \
               --tag "${tag_value}" \
-              --amd64-digest "${amd64_digest}" \
-              --amd64-status "${amd64_status}" \
-              --arm64-digest "${arm64_digest}" \
-              --arm64-status "${arm64_status}" \
-              --readme-b64 "${image_readme_b64}" \
-              --verify || {
+              "${manifest_args[@]}" || {
               warn "Failed to create manifest for variant tag: ${tag}"
             }
           done
