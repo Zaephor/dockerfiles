@@ -156,28 +156,28 @@ append_build_record() {
       if [[ "$record_version" == "$version" ]]; then
         found_match=true
         # Update existing record with new architecture data
-        line=$(echo "$line" | jq \
+        line=$(echo "$line" | jq -c \
           --arg arch "$arch" \
           --arg status "$status" \
-          --argjson digest "$(jq -Rn --arg d "$digest" '$d | if . == "" then null else . end')" \
-          --argjson duration "$(jq -Rn --arg d "$duration_sec" '$d | if . == "" then null else tonumber end')" \
-          --argjson start_ts "$(jq -Rn --arg d "$start_ts" '$d | if . == "" then null else tonumber end')" \
-          --argjson end_ts "$(jq -Rn --arg d "$end_ts" '$d | if . == "" then null else tonumber end')" \
-          --argjson retry_count "$(jq -Rn --arg d "$retry_count" '$d | if . == "" then null else tonumber end')" \
-          --argjson cache_hit_rate "$(jq -Rn --arg d "$cache_hit_rate" '$d | if . == "" then null else tonumber end')" \
-          --argjson image_size "$(jq -Rn --arg d "$image_size" '$d | if . == "" then null else tonumber end')" \
-          --argjson image_size_change "$(jq -Rn --arg d "$image_size_change" '$d | if . == "" then null else tonumber end')" \
+          --argjson digest "$(jq -Rn --arg d "$digest" 'if $d == "" then null else $d end')" \
+          --argjson duration "$(jq -Rn --arg d "$duration_sec" 'if $d == "" then null else ($d | tonumber) end')" \
+          --argjson start_ts "$(jq -Rn --arg d "$start_ts" 'if $d == "" then null else ($d | tonumber) end')" \
+          --argjson end_ts "$(jq -Rn --arg d "$end_ts" 'if $d == "" then null else ($d | tonumber) end')" \
+          --argjson retry_count "$(jq -Rn --arg d "$retry_count" 'if $d == "" then null else ($d | tonumber) end')" \
+          --argjson cache_hit_rate "$(jq -Rn --arg d "$cache_hit_rate" 'if $d == "" then null else ($d | tonumber) end')" \
+          --argjson image_size "$(jq -Rn --arg d "$image_size" 'if $d == "" then null else ($d | tonumber) end')" \
+          --argjson image_size_change "$(jq -Rn --arg d "$image_size_change" 'if $d == "" then null else ($d | tonumber) end')" \
           '.architectures[$arch] = {
-            "status": $status
-          } |
-          if $digest != null then .architectures[$arch].digest = $digest else . end |
-          if $duration != null then .architectures[$arch].duration_seconds = $duration else . end |
-          if $start_ts != null then .architectures[$arch].start_timestamp = $start_ts else . end |
-          if $end_ts != null then .architectures[$arch].end_timestamp = $end_ts else . end |
-          if $retry_count != null then .architectures[$arch].retry_count = $retry_count else . end |
-          if $cache_hit_rate != null then .architectures[$arch].cache_hit_rate = $cache_hit_rate else . end |
-          if $image_size != null then .architectures[$arch].image_size = $image_size else . end |
-          if $image_size_change != null then .architectures[$arch].image_size_change = $image_size_change else . end' 2>/dev/null || echo "$line")
+            "status": $status,
+            "digest": $digest,
+            "duration_seconds": $duration,
+            "start_timestamp": $start_ts,
+            "end_timestamp": $end_ts,
+            "retry_count": $retry_count,
+            "cache_hit_rate": $cache_hit_rate,
+            "image_size": $image_size,
+            "image_size_change": $image_size_change
+          }' 2>/dev/null || echo "$line")
       fi
 
       echo "$line" >> "$temp_file"
@@ -210,7 +210,7 @@ append_build_record() {
         }')
 
       local new_record
-      new_record=$(jq -n \
+      new_record=$(jq -nc \
         --arg version "$version" \
         --arg timestamp "$iso_timestamp" \
         --arg commit "$commit" \
@@ -264,7 +264,7 @@ append_build_record() {
       }')
 
     local new_record
-    new_record=$(jq -n \
+    new_record=$(jq -nc \
       --arg version "$version" \
       --arg timestamp "$iso_timestamp" \
       --arg commit "$commit" \
