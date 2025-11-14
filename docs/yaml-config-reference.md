@@ -438,4 +438,4 @@ Common issues:
 
 - [CONTRIBUTING.md](../CONTRIBUTING.md) - How to add new images
 - [docs/troubleshooting.md](troubleshooting.md) - Common issues
-- [examples/](../examples/) - Working example configurations
+- [docs/examples/](../docs/examples/) - Working example configurations

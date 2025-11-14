@@ -15,12 +15,12 @@ Welcome! This guide explains how to contribute to the Docker Image Build System,
 
 Find an example matching your upstream source:
 
-- **GitHub Releases** → `cp -r examples/github-release my-image`
-- **Binary with --version** → `cp -r examples/binary-version my-tool`
-- **Docker Registry Tag** → `cp -r examples/docker-tag my-base`
-- **Multiple Variants** → `cp -r examples/multi-variant my-image`
+- **GitHub Releases** → `cp -r docs/examples/github-release my-image`
+- **Binary with --version** → `cp -r docs/examples/binary-version my-tool`
+- **Docker Registry Tag** → `cp -r docs/examples/docker-tag my-base`
+- **Multiple Variants** → `cp -r docs/examples/multi-variant my-image`
 
-See [examples/README.md](examples/README.md) for detailed descriptions of each pattern.
+See [docs/examples/README.md](docs/examples/README.md) for detailed descriptions of each pattern.
 
 ### Step 2: Customize Dockerfile
 
@@ -415,4 +415,4 @@ When you modify workflow patterns or schema, you MUST update corresponding docum
 - [docs/troubleshooting.md](docs/troubleshooting.md) - Common issues
 - [docs/workflows.md](docs/workflows.md) - How the build system works
 - [docs/adr/](docs/adr/) - Why we made key decisions
-- [examples/README.md](examples/README.md) - Example patterns
+- [docs/examples/README.md](docs/examples/README.md) - Example patterns

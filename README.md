@@ -21,7 +21,7 @@ Want to see how this system works? Follow one of our example templates:
 
 1. **GitHub Releases Pattern** - Most common, detects versions from GitHub tags
    ```bash
-   cp -r examples/github-release my-image
+   cp -r docs/examples/github-release my-image
    # Edit my-image/Dockerfile, my-image/metadata.yaml
    git add my-image/
    git commit -m "Add my-image"
@@ -30,21 +30,21 @@ Want to see how this system works? Follow one of our example templates:
 
 2. **Binary Version Detection** - For tools like `kubectl`, `helm`, etc.
    ```bash
-   cp -r examples/binary-version my-tool
+   cp -r docs/examples/binary-version my-tool
    ```
 
 3. **Docker Tag Source** - Monitor another Docker image
    ```bash
-   cp -r examples/docker-tag my-docker-image
+   cp -r docs/examples/docker-tag my-docker-image
    ```
 
-See [examples/README.md](examples/README.md) for all patterns with detailed explanations.
+See [docs/examples/README.md](docs/examples/README.md) for all patterns with detailed explanations.
 
 ### For Contributors: Add a New Image in 10 Minutes
 
 1. Read [CONTRIBUTING.md](CONTRIBUTING.md) - explains exactly what files to create
 2. Check [docs/yaml-config-reference.md](docs/yaml-config-reference.md) - all configuration options with examples
-3. Copy an example from `examples/` matching your upstream source type
+3. Copy an example from `docs/examples/` matching your upstream source type
 4. Test locally with scripts in `.github/scripts/local-tools/`
 5. Submit pull request
 
@@ -104,7 +104,7 @@ update history.jsonl (version tracking)
 │       ├── 0004-detector-abstraction.md
 │       └── 0005-graceful-degradation.md
 │
-├── examples/                           # Example image templates
+├── docs/examples/                           # Example image templates
 │   ├── github-release/                 # Template: GitHub Releases
 │   ├── binary-version/                 # Template: Binary --version detection
 │   ├── docker-tag/                     # Template: Docker registry source
@@ -233,7 +233,7 @@ See [docs/adr/](docs/adr/) directory for complete ADRs.
 - [docs/architecture-detection.md](docs/architecture-detection.md) - How multi-arch detection works
 
 **For Examples**:
-- [examples/README.md](examples/README.md) - Example templates for common patterns
+- [docs/examples/README.md](docs/examples/README.md) - Example templates for common patterns
 
 ## Local Development
 
@@ -318,7 +318,7 @@ Have questions? Start here:
 
 1. **Adding images?** → Read [CONTRIBUTING.md](CONTRIBUTING.md)
 2. **Configuration help?** → See [docs/yaml-config-reference.md](docs/yaml-config-reference.md)
-3. **Example patterns?** → Review [examples/README.md](examples/README.md)
+3. **Example patterns?** → Review [docs/examples/README.md](docs/examples/README.md)
 4. **Understanding decisions?** → Check [docs/adr/](docs/adr/)
 5. **Debugging issues?** → Use [docs/troubleshooting.md](docs/troubleshooting.md)
 6. **Still stuck?** → Open a GitHub issue with details and error logs
