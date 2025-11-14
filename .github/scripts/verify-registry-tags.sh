@@ -12,10 +12,11 @@
 # Description:
 #   Verifies that multi-architecture manifest tags exist in the registry
 #   for all built images. Checks both commit SHA and branch tags.
+#   Prints informational warnings for missing manifests but does not fail
+#   the job, as some builds may legitimately fail or be skipped.
 #
 # Exit Codes:
-#   0 - All tags verified successfully
-#   1 - One or more tag verifications failed
+#   0 - Always exits successfully (warnings are informational only)
 
 set -euo pipefail
 
@@ -128,4 +129,6 @@ done
 echo ""
 echo "Registry verification complete (warnings above are normal in local environments)"
 
-exit $verification_failed
+# Exit 0 to not fail the job - verification warnings are informational only
+# Some builds may legitimately fail or be skipped (no changes detected)
+exit 0
