@@ -70,7 +70,7 @@ jobs:
           find . -name "Dockerfile" -not -path "./.git/*" | while read -r dockerfile; do
             echo "Linting: $dockerfile"
             docker run --rm -i \
-              -v "$PWD/.hadolint.yaml:/.config/hadolint.yaml:ro" \
+              -v "$PWD/.hadolint.yaml:/root/.config/hadolint.yaml:ro" \
               hadolint/hadolint:latest-alpine < "$dockerfile" || exit 1
           done
 
