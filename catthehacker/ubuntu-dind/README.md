@@ -185,6 +185,208 @@ Running containers in privileged mode grants additional permissions. Only use th
 - Local development
 - Testing environments
 
+## Troubleshooting
+
+### Docker Daemon Not Starting
+
+If the Docker daemon fails to start, check the startup logs:
+
+```bash
+# View daemon logs
+cat /tmp/docker.log
+
+# Check if dockerd is running
+ps aux | grep dockerd
+
+# Verify privileged mode is enabled
+cat /proc/self/status | grep CapEff
+```
+
+**Common causes:**
+- Container not running with `--privileged` flag
+- Insufficient system resources (memory/disk)
+- Conflicting daemon already running
+- Storage driver incompatibility
+
+### Permission Denied Errors
+
+```
+permission denied while trying to connect to the Docker daemon socket
+```
+
+**Solutions:**
+
+```bash
+# Verify docker.sock permissions
+ls -la /var/run/docker.sock
+
+# Ensure current user is in docker group (user mode only)
+groups
+
+# Check if daemon is actually running
+docker info
+```
+
+If using user mode (`HOST_UID` set), ensure the user was added to the docker group:
+
+```bash
+# Inside container, verify group membership
+id
+```
+
+### Storage Driver Issues
+
+```
+failed to start daemon: error initializing graphdriver: driver not supported
+```
+
+**Solution:** Override the storage driver:
+
+```yaml
+env:
+  DOCKER_STORAGE_DRIVER: "vfs"  # Use vfs for maximum compatibility (slower)
+```
+
+Or check available drivers:
+
+```bash
+# List supported storage drivers
+docker info | grep "Storage Driver"
+```
+
+### Health Check Failures
+
+If the container reports unhealthy status:
+
+```bash
+# Manually run health check
+docker info >/dev/null 2>&1 && echo "healthy" || echo "unhealthy"
+
+# Check daemon status
+systemctl status docker 2>/dev/null || echo "systemd not available (expected in container)"
+
+# Review daemon logs for errors
+cat /tmp/docker.log | tail -n 50
+```
+
+### Daemon Startup Timeout
+
+```
+ERROR: Docker daemon failed to start within 30 seconds
+```
+
+**Solutions:**
+
+1. **Check system resources:**
+   ```bash
+   df -h  # Disk space
+   free -h  # Memory
+   ```
+
+2. **Increase timeout:** The entrypoint script has a 30-second timeout. If your system is slow, you may need to modify the entrypoint.
+
+3. **Inspect configuration:**
+   ```bash
+   cat /etc/docker/daemon.json
+   jq . /etc/docker/daemon.json  # Verify valid JSON
+   ```
+
+### Registry Connection Issues
+
+```
+error pulling image: connection refused
+```
+
+**Solutions:**
+
+1. **Check DNS resolution:**
+   ```bash
+   nslookup docker.io
+   ping -c 3 registry-1.docker.io
+   ```
+
+2. **Test with insecure registry:**
+   ```yaml
+   env:
+     DOCKER_INSECURE_REGISTRIES: "your-registry:5000"
+   ```
+
+3. **Verify registry mirrors:**
+   ```bash
+   cat /etc/docker/daemon.json | jq '.["registry-mirrors"]'
+   docker info | grep "Registry Mirrors"
+   ```
+
+### User Mode Issues
+
+When using `HOST_UID` and `HOST_GID`:
+
+```bash
+# Verify user was created correctly
+id
+getent passwd $(id -u)
+
+# Check docker group membership
+groups | grep docker
+
+# Test docker access
+docker ps
+
+# If permission denied, check socket permissions
+ls -la /var/run/docker.sock
+```
+
+### BuildKit Issues
+
+```
+failed to solve: failed to read dockerfile
+```
+
+**Solution:** Disable BuildKit if needed:
+
+```yaml
+env:
+  DOCKER_BUILDKIT_ENABLED: "false"
+```
+
+Or check BuildKit status:
+
+```bash
+docker buildx ls
+docker info | grep -i buildkit
+```
+
+### Container Exits Immediately
+
+If the container starts and exits right away:
+
+```bash
+# Run with interactive mode to see errors
+docker run --privileged -it ghcr.io/zaephor/dockerfiles/catthehacker/ubuntu-dind:act-24.04 /bin/bash
+
+# Check entrypoint logs
+docker logs <container-id>
+
+# Verify the entrypoint script
+cat /usr/local/bin/entrypoint-dind.sh
+```
+
+### Debug Mode
+
+For detailed debugging, run commands manually:
+
+```bash
+# Start container with bash instead of entrypoint
+docker run --privileged -it --entrypoint /bin/bash \
+  ghcr.io/zaephor/dockerfiles/catthehacker/ubuntu-dind:act-24.04
+
+# Inside container, manually start dockerd
+dockerd --host=unix:///var/run/docker.sock --debug &
+
+# Watch logs in real-time
+tail -f /tmp/docker.log
+```
+
 ## License
 
 MIT - Same as the underlying catthehacker/ubuntu images
