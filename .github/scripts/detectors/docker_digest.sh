@@ -183,9 +183,26 @@ get_registry_token() {
       return 1
       ;;
     docker.io|registry.hub.docker.com)
-      # Docker Hub - anonymous usually works for public images
+      # Docker Hub requires token exchange
+      local token_url="https://auth.docker.io/token?service=registry.docker.io&scope=repository:${image}:pull"
+      local token_response
+      token_response=$(curl -sSL "$token_url" 2>&1) || {
+        if [[ "${DEBUG:-}" == "true" ]]; then
+          echo "WARN: Failed to get Docker Hub token" >&2
+        fi
+        echo ""
+        return 1
+      }
+
+      local bearer_token
+      bearer_token=$(echo "$token_response" | jq -r '.token // empty')
+      if [[ -n "$bearer_token" ]]; then
+        echo "$bearer_token"
+        return 0
+      fi
+
       echo ""
-      return 0
+      return 1
       ;;
     *)
       # Generic registry
@@ -219,7 +236,13 @@ get_image_digest() {
   local tag="$3"
   local auth_token="$4"
 
-  local url="https://${registry}/v2/${image}/manifests/${tag}"
+  # Docker Hub uses registry-1.docker.io for the registry API
+  local registry_url="$registry"
+  if [[ "$registry" == "docker.io" ]]; then
+    registry_url="registry-1.docker.io"
+  fi
+
+  local url="https://${registry_url}/v2/${image}/manifests/${tag}"
   # Support both OCI and Docker v2 manifest formats
   local headers=(-H "Accept: application/vnd.oci.image.index.v1+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.docker.distribution.manifest.v2+json")
 
@@ -333,14 +356,13 @@ main() {
   }
 
   # Check cache
-  local cache_key="${DETECTOR_NAME}:${registry}:${image}:${tag}"
-  local cached_result
-  if cached_result=$(get_cache "$cache_key"); then
+  local cached_version
+  if cached_version=$(get_cached_version "$image_name" 2>/dev/null); then
     if [[ "${DEBUG:-}" == "true" ]]; then
-      echo "INFO: Using cached digest for ${registry}/${image}:${tag}" >&2
+      echo "INFO: Using cached digest for ${registry}/${image}:${tag}: $cached_version" >&2
     fi
-    # Update cached field to true
-    echo "$cached_result" | jq '.cached = true'
+    local source_url="https://${registry}/${image}:${tag}@${cached_version}"
+    output_success "$cached_version" "$DETECTOR_NAME" true "$source_url"
     return 0
   fi
 
@@ -358,14 +380,11 @@ main() {
   # Build source URL
   local source_url="https://${registry}/${image}:${tag}@${digest}"
 
-  # Output success
-  local result
-  result=$(output_success "$digest" "$DETECTOR_NAME" "false" "$source_url")
-
   # Cache the result
-  set_cache "$cache_key" "$result"
+  write_cache "$image_name" "$digest" "$DETECTOR_NAME" "$source_url"
 
-  echo "$result"
+  # Output success
+  output_success "$digest" "$DETECTOR_NAME" "false" "$source_url"
   return 0
 }
 

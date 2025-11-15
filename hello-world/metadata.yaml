@@ -1,9 +1,13 @@
 name: hello-world
+description: Simple multi-arch hello-world test image
+
+# Track the digest of upstream alpine:3.19 base image
+# Rebuilds when Alpine releases updates to the 3.19 tag
 version_source:
-  type: github_releases
-  repo: gianarb/hello-world
-  version_regex: ^v(.+)$
-  auth_token_secret: GITHUB_TOKEN
+  type: docker_digest
+  registry: docker.io
+  image: library/alpine
+  tag: "3.19"
 
 architectures: [amd64, arm64]
 
