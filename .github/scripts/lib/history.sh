@@ -149,6 +149,11 @@ append_build_record() {
 
     # Read existing file line by line (JSONL format)
     while IFS= read -r line; do
+      # Skip empty lines
+      if [[ -z "$line" ]]; then
+        continue
+      fi
+
       # Parse the record to check if it matches our version
       local record_version
       record_version=$(echo "$line" | jq -r '.version // empty' 2>/dev/null || echo "")
@@ -187,7 +192,7 @@ append_build_record() {
     if [[ "$found_match" == false ]]; then
       # Create new record with first architecture
       local arch_data
-      arch_data=$(jq -n \
+      arch_data=$(jq -nc \
         --arg status "$status" \
         --argjson digest "$(jq -Rn --arg d "$digest" 'if $d == "" then null else $d end')" \
         --argjson duration "$(jq -Rn --arg d "$duration_sec" 'if $d == "" then null else ($d | tonumber) end')" \
@@ -207,7 +212,17 @@ append_build_record() {
           "cache_hit_rate": $cache_hit_rate,
           "image_size": $image_size,
           "image_size_change": $image_size_change
-        }')
+        }') || {
+        echo "ERROR: Failed to create arch_data JSON (existing file path)" >&2
+        rm -f "$temp_file"
+        return 1
+      }
+
+      if [[ -z "$arch_data" ]]; then
+        echo "ERROR: arch_data is empty (existing file path)" >&2
+        rm -f "$temp_file"
+        return 1
+      fi
 
       local new_record
       new_record=$(jq -nc \
@@ -227,7 +242,17 @@ append_build_record() {
           "architectures": {
             ($arch): $arch_data
           }
-        }')
+        }') || {
+        echo "ERROR: Failed to create new_record JSON (existing file path)" >&2
+        rm -f "$temp_file"
+        return 1
+      }
+
+      if [[ -z "$new_record" ]]; then
+        echo "ERROR: new_record is empty (existing file path)" >&2
+        rm -f "$temp_file"
+        return 1
+      fi
 
       echo "$new_record" >> "$temp_file"
     fi
@@ -241,7 +266,7 @@ append_build_record() {
   else
     # Create new history file with first record
     local arch_data
-    arch_data=$(jq -n \
+    arch_data=$(jq -nc \
       --arg status "$status" \
       --argjson digest "$(jq -Rn --arg d "$digest" 'if $d == "" then null else $d end')" \
       --argjson duration "$(jq -Rn --arg d "$duration_sec" 'if $d == "" then null else ($d | tonumber) end')" \
@@ -261,7 +286,15 @@ append_build_record() {
         "cache_hit_rate": $cache_hit_rate,
         "image_size": $image_size,
         "image_size_change": $image_size_change
-      }')
+      }') || {
+      echo "ERROR: Failed to create arch_data JSON (new file path)" >&2
+      return 1
+    }
+
+    if [[ -z "$arch_data" ]]; then
+      echo "ERROR: arch_data is empty (new file path)" >&2
+      return 1
+    fi
 
     local new_record
     new_record=$(jq -nc \
@@ -281,10 +314,18 @@ append_build_record() {
         "architectures": {
           ($arch): $arch_data
         }
-      }')
+      }') || {
+      echo "ERROR: Failed to create new_record JSON (new file path)" >&2
+      return 1
+    }
+
+    if [[ -z "$new_record" ]]; then
+      echo "ERROR: new_record is empty (new file path)" >&2
+      return 1
+    fi
 
     echo "$new_record" > "$history_file" || {
-      echo "ERROR: Failed to create history file: $history_file" >&2
+      echo "ERROR: Failed to write to history file: $history_file" >&2
       return 1
     }
   fi
