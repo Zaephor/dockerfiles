@@ -679,54 +679,9 @@ jobs:
 
       - name: Merge history files from all architectures
         run: |
-          # Each architecture creates a history artifact containing:
-          # - image_path.txt: The image directory path
-          # - history.jsonl: The history entries for that arch
-
-          echo "Merging history files from artifacts..."
-
-          for artifact_dir in /tmp/history-artifacts/history-*; do
-            if [ ! -d "$artifact_dir" ]; then
-              continue
-            fi
-
-            artifact_name=$(basename "$artifact_dir")
-
-            # Read the image path from metadata
-            image_path_file="$artifact_dir/image_path.txt"
-            history_file="$artifact_dir/history.jsonl"
-
-            if [ ! -f "$image_path_file" ]; then
-              echo "WARNING: No image_path.txt in $artifact_name"
-              continue
-            fi
-
-            if [ ! -f "$history_file" ]; then
-              echo "WARNING: No history.jsonl in $artifact_name"
-              continue
-            fi
-
-            # Read the image directory path
-            image_dir=$(cat "$image_path_file")
-
-            echo "Processing artifact: $artifact_name"
-            echo "  Image directory: $image_dir"
-
-            # Append history entries to the image's history.jsonl
-            target_file="${image_dir}/history.jsonl"
-            mkdir -p "$(dirname "$target_file")"
-
-            # Append the new entries
-            cat "$history_file" >> "$target_file"
-
-            echo "  Appended $(wc -l < "$history_file") line(s) to $target_file"
-          done
-
-          echo ""
-          echo "History merge complete. Updated files:"
-          find . -name 'history.jsonl' -type f | while read -r f; do
-            echo "  $f ($(wc -l < "$f") lines)"
-          done
+          # Use merge script to intelligently combine artifacts from parallel builds
+          # This merges records with the same version and combines architecture data
+          ./.github/scripts/merge-history-artifacts.sh /tmp/history-artifacts
 
       - name: Commit updated history files
         run: |
