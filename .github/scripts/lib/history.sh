@@ -164,24 +164,24 @@ append_build_record() {
         line=$(echo "$line" | jq -c \
           --arg arch "$arch" \
           --arg status "$status" \
-          --argjson digest "$(jq -Rn --arg d "$digest" 'if $d == "" then null else $d end')" \
-          --argjson duration "$(jq -Rn --arg d "$duration_sec" 'if $d == "" then null else ($d | tonumber) end')" \
-          --argjson start_ts "$(jq -Rn --arg d "$start_ts" 'if $d == "" then null else ($d | tonumber) end')" \
-          --argjson end_ts "$(jq -Rn --arg d "$end_ts" 'if $d == "" then null else ($d | tonumber) end')" \
-          --argjson retry_count "$(jq -Rn --arg d "$retry_count" 'if $d == "" then null else ($d | tonumber) end')" \
-          --argjson cache_hit_rate "$(jq -Rn --arg d "$cache_hit_rate" 'if $d == "" then null else ($d | tonumber) end')" \
-          --argjson image_size "$(jq -Rn --arg d "$image_size" 'if $d == "" then null else ($d | tonumber) end')" \
-          --argjson image_size_change "$(jq -Rn --arg d "$image_size_change" 'if $d == "" then null else ($d | tonumber) end')" \
+          --arg digest "$digest" \
+          --arg duration "$duration_sec" \
+          --arg start_ts "$start_ts" \
+          --arg end_ts "$end_ts" \
+          --arg retry_count "$retry_count" \
+          --arg cache_hit_rate "$cache_hit_rate" \
+          --arg image_size "$image_size" \
+          --arg image_size_change "$image_size_change" \
           '.architectures[$arch] = {
             "status": $status,
-            "digest": $digest,
-            "duration_seconds": $duration,
-            "start_timestamp": $start_ts,
-            "end_timestamp": $end_ts,
-            "retry_count": $retry_count,
-            "cache_hit_rate": $cache_hit_rate,
-            "image_size": $image_size,
-            "image_size_change": $image_size_change
+            "digest": (if $digest == "" or $digest == "null" then null else $digest end),
+            "duration_seconds": (if $duration == "" or $duration == "null" or $duration == "undefined" or ($duration | test("^\\s*$")) then null else ($duration | tonumber) end),
+            "start_timestamp": (if $start_ts == "" or $start_ts == "null" or $start_ts == "undefined" or ($start_ts | test("^\\s*$")) then null else ($start_ts | tonumber) end),
+            "end_timestamp": (if $end_ts == "" or $end_ts == "null" or $end_ts == "undefined" or ($end_ts | test("^\\s*$")) then null else ($end_ts | tonumber) end),
+            "retry_count": (if $retry_count == "" or $retry_count == "null" or $retry_count == "undefined" or ($retry_count | test("^\\s*$")) then null else ($retry_count | tonumber) end),
+            "cache_hit_rate": (if $cache_hit_rate == "" or $cache_hit_rate == "null" or $cache_hit_rate == "undefined" or ($cache_hit_rate | test("^\\s*$")) then null else ($cache_hit_rate | tonumber) end),
+            "image_size": (if $image_size == "" or $image_size == "null" or $image_size == "undefined" or ($image_size | test("^\\s*$")) then null else ($image_size | tonumber) end),
+            "image_size_change": (if $image_size_change == "" or $image_size_change == "null" or $image_size_change == "undefined" or ($image_size_change | test("^\\s*$")) then null else ($image_size_change | tonumber) end)
           }' 2>/dev/null || echo "$line")
       fi
 
@@ -194,24 +194,24 @@ append_build_record() {
       local arch_data
       arch_data=$(jq -nc \
         --arg status "$status" \
-        --argjson digest "$(jq -Rn --arg d "$digest" 'if $d == "" then null else $d end')" \
-        --argjson duration "$(jq -Rn --arg d "$duration_sec" 'if $d == "" then null else ($d | tonumber) end')" \
-        --argjson start_ts "$(jq -Rn --arg d "$start_ts" 'if $d == "" then null else ($d | tonumber) end')" \
-        --argjson end_ts "$(jq -Rn --arg d "$end_ts" 'if $d == "" then null else ($d | tonumber) end')" \
-        --argjson retry_count "$(jq -Rn --arg d "$retry_count" 'if $d == "" then null else ($d | tonumber) end')" \
-        --argjson cache_hit_rate "$(jq -Rn --arg d "$cache_hit_rate" 'if $d == "" then null else ($d | tonumber) end')" \
-        --argjson image_size "$(jq -Rn --arg d "$image_size" 'if $d == "" then null else ($d | tonumber) end')" \
-        --argjson image_size_change "$(jq -Rn --arg d "$image_size_change" 'if $d == "" then null else ($d | tonumber) end')" \
+        --arg digest "$digest" \
+        --arg duration "$duration_sec" \
+        --arg start_ts "$start_ts" \
+        --arg end_ts "$end_ts" \
+        --arg retry_count "$retry_count" \
+        --arg cache_hit_rate "$cache_hit_rate" \
+        --arg image_size "$image_size" \
+        --arg image_size_change "$image_size_change" \
         '{
           "status": $status,
-          "digest": $digest,
-          "duration_seconds": $duration,
-          "start_timestamp": $start_ts,
-          "end_timestamp": $end_ts,
-          "retry_count": $retry_count,
-          "cache_hit_rate": $cache_hit_rate,
-          "image_size": $image_size,
-          "image_size_change": $image_size_change
+          "digest": (if $digest == "" or $digest == "null" then null else $digest end),
+          "duration_seconds": (if $duration == "" or $duration == "null" or $duration == "undefined" or ($duration | test("^\\s*$")) then null else ($duration | tonumber) end),
+          "start_timestamp": (if $start_ts == "" or $start_ts == "null" or $start_ts == "undefined" or ($start_ts | test("^\\s*$")) then null else ($start_ts | tonumber) end),
+          "end_timestamp": (if $end_ts == "" or $end_ts == "null" or $end_ts == "undefined" or ($end_ts | test("^\\s*$")) then null else ($end_ts | tonumber) end),
+          "retry_count": (if $retry_count == "" or $retry_count == "null" or $retry_count == "undefined" or ($retry_count | test("^\\s*$")) then null else ($retry_count | tonumber) end),
+          "cache_hit_rate": (if $cache_hit_rate == "" or $cache_hit_rate == "null" or $cache_hit_rate == "undefined" or ($cache_hit_rate | test("^\\s*$")) then null else ($cache_hit_rate | tonumber) end),
+          "image_size": (if $image_size == "" or $image_size == "null" or $image_size == "undefined" or ($image_size | test("^\\s*$")) then null else ($image_size | tonumber) end),
+          "image_size_change": (if $image_size_change == "" or $image_size_change == "null" or $image_size_change == "undefined" or ($image_size_change | test("^\\s*$")) then null else ($image_size_change | tonumber) end)
         }') || {
         echo "ERROR: Failed to create arch_data JSON (existing file path)" >&2
         rm -f "$temp_file"
@@ -268,24 +268,24 @@ append_build_record() {
     local arch_data
     arch_data=$(jq -nc \
       --arg status "$status" \
-      --argjson digest "$(jq -Rn --arg d "$digest" 'if $d == "" then null else $d end')" \
-      --argjson duration "$(jq -Rn --arg d "$duration_sec" 'if $d == "" then null else ($d | tonumber) end')" \
-      --argjson start_ts "$(jq -Rn --arg d "$start_ts" 'if $d == "" then null else ($d | tonumber) end')" \
-      --argjson end_ts "$(jq -Rn --arg d "$end_ts" 'if $d == "" then null else ($d | tonumber) end')" \
-      --argjson retry_count "$(jq -Rn --arg d "$retry_count" 'if $d == "" then null else ($d | tonumber) end')" \
-      --argjson cache_hit_rate "$(jq -Rn --arg d "$cache_hit_rate" 'if $d == "" then null else ($d | tonumber) end')" \
-      --argjson image_size "$(jq -Rn --arg d "$image_size" 'if $d == "" then null else ($d | tonumber) end')" \
-      --argjson image_size_change "$(jq -Rn --arg d "$image_size_change" 'if $d == "" then null else ($d | tonumber) end')" \
+      --arg digest "$digest" \
+      --arg duration "$duration_sec" \
+      --arg start_ts "$start_ts" \
+      --arg end_ts "$end_ts" \
+      --arg retry_count "$retry_count" \
+      --arg cache_hit_rate "$cache_hit_rate" \
+      --arg image_size "$image_size" \
+      --arg image_size_change "$image_size_change" \
       '{
         "status": $status,
-        "digest": $digest,
-        "duration_seconds": $duration,
-        "start_timestamp": $start_ts,
-        "end_timestamp": $end_ts,
-        "retry_count": $retry_count,
-        "cache_hit_rate": $cache_hit_rate,
-        "image_size": $image_size,
-        "image_size_change": $image_size_change
+        "digest": (if $digest == "" or $digest == "null" then null else $digest end),
+        "duration_seconds": (if $duration == "" or $duration == "null" or $duration == "undefined" or ($duration | test("^\\s*$")) then null else ($duration | tonumber) end),
+        "start_timestamp": (if $start_ts == "" or $start_ts == "null" or $start_ts == "undefined" or ($start_ts | test("^\\s*$")) then null else ($start_ts | tonumber) end),
+        "end_timestamp": (if $end_ts == "" or $end_ts == "null" or $end_ts == "undefined" or ($end_ts | test("^\\s*$")) then null else ($end_ts | tonumber) end),
+        "retry_count": (if $retry_count == "" or $retry_count == "null" or $retry_count == "undefined" or ($retry_count | test("^\\s*$")) then null else ($retry_count | tonumber) end),
+        "cache_hit_rate": (if $cache_hit_rate == "" or $cache_hit_rate == "null" or $cache_hit_rate == "undefined" or ($cache_hit_rate | test("^\\s*$")) then null else ($cache_hit_rate | tonumber) end),
+        "image_size": (if $image_size == "" or $image_size == "null" or $image_size == "undefined" or ($image_size | test("^\\s*$")) then null else ($image_size | tonumber) end),
+        "image_size_change": (if $image_size_change == "" or $image_size_change == "undefined" or $image_size_change == "null" or ($image_size_change | test("^\\s*$")) then null else ($image_size_change | tonumber) end)
       }') || {
       echo "ERROR: Failed to create arch_data JSON (new file path)" >&2
       return 1
