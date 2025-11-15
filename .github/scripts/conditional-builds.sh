@@ -24,6 +24,7 @@ source "$SCRIPT_DIR/lib/history.sh"
 #   $1: Image name
 #   $2: Repository root
 #   $3: Version detected
+#   $4: Variant (optional) - determines which history file to read
 # Returns:
 #   0 on success (always), 1 on error
 #   Outputs JSON to stdout with build decision
@@ -32,7 +33,18 @@ should_build_image() {
     local image_name="$1"
     local repo_root="${2:-.}"
     local version="$3"
-    local history_file="$repo_root/$image_name/history.jsonl"
+    local variant="${4:-}"
+
+    # Calculate history file path based on variant
+    # - No variant or "default": history.jsonl
+    # - With variant: history-${variant}.jsonl
+    local history_file
+    if [[ -z "$variant" ]] || [[ "$variant" == "default" ]]; then
+        history_file="$repo_root/$image_name/history.jsonl"
+    else
+        history_file="$repo_root/$image_name/history-${variant}.jsonl"
+    fi
+
     local should_build="false"
     local reason="unknown"
 

@@ -130,8 +130,17 @@ append_build_record() {
     return 1
   fi
 
+  # Calculate history file path based on variant
+  # - No variant or "default": history.jsonl
+  # - With variant: history-${variant}.jsonl
+  local history_file
+  if [[ -z "$variant" ]] || [[ "$variant" == "default" ]]; then
+    history_file="${image_dir}/history.jsonl"
+  else
+    history_file="${image_dir}/history-${variant}.jsonl"
+  fi
+
   # Ensure history directory exists
-  local history_file="${image_dir}/history.jsonl"
   mkdir -p "$(dirname "$history_file")" || {
     echo "ERROR: Failed to create directory for history file: $history_file" >&2
     return 1
@@ -159,13 +168,12 @@ append_build_record() {
         continue
       fi
 
-      # Parse the record to check if it matches our version and variant
-      local record_version record_variant
+      # Parse the record to check if it matches our version
+      local record_version
       record_version=$(echo "$line" | jq -r '.version // empty' 2>/dev/null || echo "")
-      record_variant=$(echo "$line" | jq -r '.variant // empty' 2>/dev/null || echo "")
 
-      # Match if version matches AND variant matches (or both are empty for backward compatibility)
-      if [[ "$record_version" == "$version" ]] && [[ "$record_variant" == "$variant" ]]; then
+      # Match if version matches (variant is determined by file path)
+      if [[ "$record_version" == "$version" ]]; then
         found_match=true
         # Update existing record with new architecture data
         line=$(echo "$line" | jq -c \
@@ -234,7 +242,6 @@ append_build_record() {
       local new_record
       new_record=$(jq -nc \
         --arg version "$version" \
-        --arg variant "$variant" \
         --arg timestamp "$iso_timestamp" \
         --arg commit "$commit" \
         --arg branch "$branch" \
@@ -242,7 +249,6 @@ append_build_record() {
         --argjson arch_data "$arch_data" \
         '{
           "version": $version,
-          "variant": (if $variant == "" then null else $variant end),
           "timestamp": $timestamp,
           "commit": $commit,
           "branch": $branch,
@@ -308,7 +314,6 @@ append_build_record() {
     local new_record
     new_record=$(jq -nc \
       --arg version "$version" \
-      --arg variant "$variant" \
       --arg timestamp "$iso_timestamp" \
       --arg commit "$commit" \
       --arg branch "$branch" \
@@ -316,7 +321,6 @@ append_build_record() {
       --argjson arch_data "$arch_data" \
       '{
         "version": $version,
-        "variant": (if $variant == "" then null else $variant end),
         "timestamp": $timestamp,
         "commit": $commit,
         "branch": $branch,
