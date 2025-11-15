@@ -323,13 +323,12 @@ main() {
   }
 
   # Read multi-line output (one variable per line)
+  # Using sed instead of command group to avoid issues with set -e
   local registry image tag auth_token_secret
-  {
-    read -r registry
-    read -r image
-    read -r tag
-    read -r auth_token_secret
-  } <<< "$config_output"
+  registry=$(echo "$config_output" | sed -n '1p')
+  image=$(echo "$config_output" | sed -n '2p')
+  tag=$(echo "$config_output" | sed -n '3p')
+  auth_token_secret=$(echo "$config_output" | sed -n '4p')
 
   if [[ "${DEBUG:-}" == "true" ]]; then
     echo "INFO: Detecting digest for: ${registry}/${image}:${tag}" >&2
