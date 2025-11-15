@@ -690,7 +690,13 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           # Add all history.jsonl files (including untracked ones)
-          git add '*/history.jsonl'
+          # Use find to locate files and add them (handles case where no files exist)
+          if find . -name 'history.jsonl' -type f -print0 | xargs -0 -r git add; then
+            echo "Added history files"
+          else
+            echo "No history files found to add"
+            exit 0
+          fi
 
           # Check if there are any staged changes
           if git diff --cached --quiet; then
