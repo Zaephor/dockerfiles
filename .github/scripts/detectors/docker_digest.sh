@@ -6,7 +6,7 @@
 # Useful for detecting when an upstream base image changes.
 #
 # Usage:
-#   ./docker-digest.sh --config /path/to/metadata.yaml --image-name image-name
+#   ./docker-digest.sh --config /path/to/metadata.yaml --image-name image-name [--variant variant-name]
 #
 # Configuration (metadata.yaml):
 #   version_source:
@@ -14,6 +14,8 @@
 #     registry: ghcr.io  # Required: registry URL (ghcr.io, docker.io, etc.)
 #     image: catthehacker/ubuntu  # Required: image name (without registry)
 #     tag: act-24.04  # Required: specific tag to track
+#     # OR use template for per-variant tracking:
+#     tag: "{variant}"  # Template: replaced with --variant parameter value
 #     auth_token_secret: GITHUB_TOKEN  # Optional: secret name for authentication
 #
 # Output:
@@ -84,6 +86,7 @@ EOF
 #
 # Arguments:
 #   $1: Path to metadata.yaml
+#   $2: Optional variant name (for {variant} template substitution)
 #
 # Output:
 #   registry, image, tag, auth_token_secret (one per line)
@@ -93,6 +96,7 @@ EOF
 #
 parse_docker_config() {
   local config_file="$1"
+  local variant="${2:-}"
 
   if [[ ! -f "$config_file" ]]; then
     output_error "CONFIG_ERROR" "Config file not found: $config_file" "$DETECTOR_NAME"
@@ -121,6 +125,16 @@ parse_docker_config() {
   if [[ -z "$tag" || "$tag" == "null" ]]; then
     output_error "CONFIG_ERROR" "Missing required field: version_source.tag" "$DETECTOR_NAME"
     return 2
+  fi
+
+  # Check if tag contains {variant} template
+  if [[ "$tag" == *"{variant}"* ]]; then
+    if [[ -z "$variant" ]]; then
+      output_error "CONFIG_ERROR" "Tag contains {variant} template but no --variant parameter provided" "$DETECTOR_NAME"
+      return 2
+    fi
+    # Substitute {variant} with actual variant name
+    tag="${tag//\{variant\}/$variant}"
   fi
 
   # Extract optional auth token secret
@@ -291,6 +305,7 @@ main() {
   # Parse command-line arguments
   local config_file=""
   local image_name=""
+  local variant=""
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -300,6 +315,10 @@ main() {
         ;;
       --image-name)
         image_name="$2"
+        shift 2
+        ;;
+      --variant)
+        variant="$2"
         shift 2
         ;;
       *)
@@ -314,9 +333,9 @@ main() {
     return 1
   fi
 
-  # Parse configuration
+  # Parse configuration (pass variant for template substitution)
   local config_output
-  config_output=$(parse_docker_config "$config_file") || {
+  config_output=$(parse_docker_config "$config_file" "$variant") || {
     local exit_code=$?
     echo "$config_output"
     return $exit_code

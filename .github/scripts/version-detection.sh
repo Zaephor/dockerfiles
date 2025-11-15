@@ -7,7 +7,7 @@
 # Stops on first success, reports failure if all detectors fail.
 #
 # Usage:
-#   ./version-detection.sh --config /path/to/metadata.yaml --image-name image-name
+#   ./version-detection.sh --config /path/to/metadata.yaml --image-name image-name [--variant variant-name]
 #
 # Output:
 #   JSON object with detection result or error
@@ -41,7 +41,7 @@ source "${LIB_DIR}/cache.sh" || {
 #   All command-line arguments
 #
 # Output:
-#   config_file and image_name (separated by newline)
+#   config_file, image_name, and variant (separated by newline)
 #
 # Returns:
 #   0 on success, 1 on invalid arguments
@@ -49,6 +49,7 @@ source "${LIB_DIR}/cache.sh" || {
 parse_arguments() {
   local config_file=""
   local image_name=""
+  local variant=""
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -58,6 +59,10 @@ parse_arguments() {
         ;;
       --image-name)
         image_name="$2"
+        shift 2
+        ;;
+      --variant)
+        variant="$2"
         shift 2
         ;;
       *)
@@ -72,7 +77,7 @@ parse_arguments() {
     return 1
   fi
 
-  echo "$config_file" "$image_name"
+  echo "$config_file" "$image_name" "$variant"
   return 0
 }
 
@@ -187,9 +192,10 @@ get_detector_type() {
 #
 # Arguments:
 #   $1: Detector type (github-releases, binary, docker-tags, http-api)
-#   $2: Path to config file (or JSON detector config string if $4 is "json")
+#   $2: Path to config file (or JSON detector config string if $5 is "json")
 #   $3: Image name
-#   $4: Optional - "json" if $2 is JSON config instead of file path
+#   $4: Variant name (optional, for per-variant version tracking)
+#   $5: Optional - "json" if $2 is JSON config instead of file path
 #
 # Output:
 #   JSON result from detector
@@ -203,7 +209,8 @@ invoke_detector() {
   local detector_type="$1"
   local config_input="$2"
   local image_name="$3"
-  local input_format="${4:-file}"  # "file" or "json"
+  local variant="$4"
+  local input_format="${5:-file}"  # "file" or "json"
 
   local detector_script="${DETECTORS_DIR}/${detector_type}.sh"
 
@@ -233,13 +240,19 @@ invoke_detector() {
     config_file="$temp_config"
   fi
 
-  echo "INFO: Invoking detector: $detector_type for image: $image_name" >&2
+  echo "INFO: Invoking detector: $detector_type for image: $image_name${variant:+ variant: $variant}" >&2
 
   # Invoke detector and capture output
   local output
   local exit_code
 
-  output=$("$detector_script" --config "$config_file" --image-name "$image_name") || {
+  # Build detector command with optional --variant parameter
+  local detector_cmd=("$detector_script" --config "$config_file" --image-name "$image_name")
+  if [[ -n "$variant" ]]; then
+    detector_cmd+=(--variant "$variant")
+  fi
+
+  output=$("${detector_cmd[@]}") || {
     exit_code=$?
     echo "$output"
     # Clean up temp file if created
@@ -265,6 +278,7 @@ invoke_detector() {
 # Arguments:
 #   $1: Path to config file
 #   $2: Image name
+#   $3: Variant name (optional, for per-variant version tracking)
 #
 # Output:
 #   JSON result from successful detector or aggregated error
@@ -277,6 +291,7 @@ invoke_detector() {
 run_detection_with_fallback() {
   local config_file="$1"
   local image_name="$2"
+  local variant="$3"
 
   # Parse detectors from config
   local detectors
@@ -359,7 +374,7 @@ EOF
     local result
     local exit_code
 
-    result=$(invoke_detector "$detector_type" "$detector_config" "$image_name" "$config_format") || {
+    result=$(invoke_detector "$detector_type" "$detector_config" "$image_name" "$variant" "$config_format") || {
       exit_code=$?
 
       if [[ $exit_code -eq 2 ]]; then
@@ -437,16 +452,16 @@ EOF
     exit 2
   }
 
-  read -r config_file image_name <<< "$args"
+  read -r config_file image_name variant <<< "$args"
 
-  echo "INFO: Version detection orchestrator starting for image: $image_name" >&2
+  echo "INFO: Version detection orchestrator starting for image: $image_name${variant:+ variant: $variant}" >&2
   echo "INFO: Config file: $config_file" >&2
 
   # Run detection with fallback logic
   local result
   local exit_code
 
-  result=$(run_detection_with_fallback "$config_file" "$image_name") || {
+  result=$(run_detection_with_fallback "$config_file" "$image_name" "$variant") || {
     exit_code=$?
     echo "$result"
     exit $exit_code

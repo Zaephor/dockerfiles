@@ -9,6 +9,7 @@
 #     --branch BRANCH \
 #     --arch ARCH \
 #     --build-status STATUS \
+#     [--variant VARIANT] \
 #     [--build-start START] \
 #     [--build-end END] \
 #     [--duration DURATION] \
@@ -41,6 +42,7 @@ source "$SCRIPT_DIR/lib/logging.sh"
 # Global variables
 IMAGE_DIR=""
 VERSION=""
+VARIANT=""
 COMMIT=""
 BRANCH=""
 ARCH=""
@@ -62,6 +64,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --version)
             VERSION="$2"
+            shift 2
+            ;;
+        --variant)
+            VARIANT="$2"
             shift 2
             ;;
         --commit)
@@ -129,8 +135,9 @@ if [ -z "$BUILD_START" ] || [ -z "$BUILD_END" ] || [ -z "$DURATION" ]; then
     BUILD_END=""
 fi
 
-# Call append_build_record with all metrics including retry count, cache_hit_rate, and image_size
+# Call append_build_record with all metrics including variant, retry count, cache_hit_rate, and image_size
 append_build_record "$IMAGE_DIR" "$VERSION" "$COMMIT" "$BRANCH" "$ARCH" "$BUILD_STATUS" \
+    --variant "$VARIANT" \
     --start "$BUILD_START" \
     --end "$BUILD_END" \
     --duration "$DURATION" \

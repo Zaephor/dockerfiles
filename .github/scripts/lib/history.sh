@@ -68,6 +68,7 @@ append_build_record() {
   local status="$6"
 
   # Optional parameters
+  local variant=""
   local start_ts=""
   local end_ts=""
   local duration_sec=""
@@ -79,6 +80,10 @@ append_build_record() {
 
   while [[ $# -gt 6 ]]; do
     case "$7" in
+      --variant)
+        variant="$8"
+        shift 2
+        ;;
       --start)
         start_ts="$8"
         shift 2
@@ -154,11 +159,13 @@ append_build_record() {
         continue
       fi
 
-      # Parse the record to check if it matches our version
-      local record_version
+      # Parse the record to check if it matches our version and variant
+      local record_version record_variant
       record_version=$(echo "$line" | jq -r '.version // empty' 2>/dev/null || echo "")
+      record_variant=$(echo "$line" | jq -r '.variant // empty' 2>/dev/null || echo "")
 
-      if [[ "$record_version" == "$version" ]]; then
+      # Match if version matches AND variant matches (or both are empty for backward compatibility)
+      if [[ "$record_version" == "$version" ]] && [[ "$record_variant" == "$variant" ]]; then
         found_match=true
         # Update existing record with new architecture data
         line=$(echo "$line" | jq -c \
@@ -227,6 +234,7 @@ append_build_record() {
       local new_record
       new_record=$(jq -nc \
         --arg version "$version" \
+        --arg variant "$variant" \
         --arg timestamp "$iso_timestamp" \
         --arg commit "$commit" \
         --arg branch "$branch" \
@@ -234,6 +242,7 @@ append_build_record() {
         --argjson arch_data "$arch_data" \
         '{
           "version": $version,
+          "variant": (if $variant == "" then null else $variant end),
           "timestamp": $timestamp,
           "commit": $commit,
           "branch": $branch,
@@ -299,6 +308,7 @@ append_build_record() {
     local new_record
     new_record=$(jq -nc \
       --arg version "$version" \
+      --arg variant "$variant" \
       --arg timestamp "$iso_timestamp" \
       --arg commit "$commit" \
       --arg branch "$branch" \
@@ -306,6 +316,7 @@ append_build_record() {
       --argjson arch_data "$arch_data" \
       '{
         "version": $version,
+        "variant": (if $variant == "" then null else $variant end),
         "timestamp": $timestamp,
         "commit": $commit,
         "branch": $branch,
