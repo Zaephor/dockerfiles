@@ -66,6 +66,17 @@ repos:
         name: Lint Markdown files
         args: ['--config', '.markdownlint.yaml']
 
+  # Custom tests for history.jsonl workflow
+  - repo: local
+    hooks:
+      - id: test-history-workflow
+        name: Test history.jsonl workflow
+        description: Validates history tracking creates valid JSON with no empty lines
+        entry: .github/scripts/test-history-workflow.sh
+        language: script
+        pass_filenames: false
+        files: '^\.github/scripts/(record-build-history\.sh|merge-history-artifacts\.sh|lib/history\.sh)$'
+
 # Global settings
 default_language_version:
   python: python3
