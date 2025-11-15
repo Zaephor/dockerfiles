@@ -135,6 +135,12 @@ write_cache() {
 EOF
 )
 
+  # Ensure parent directory exists (handles image names with slashes)
+  mkdir -p "$(dirname "$cache_file")" || {
+    echo "WARN: Failed to create cache directory for $image_name" >&2
+    return 1
+  }
+
   # Write cache file atomically
   echo "$cache_json" > "$cache_file" || {
     echo "WARN: Failed to write cache for $image_name" >&2
