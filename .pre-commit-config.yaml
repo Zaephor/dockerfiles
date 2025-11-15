@@ -75,7 +75,7 @@ repos:
         entry: .github/scripts/test-history-workflow.sh
         language: script
         pass_filenames: false
-        files: '^\.github/scripts/(record-build-history\.sh|merge-history-artifacts\.sh|lib/history\.sh)$'
+        files: '^\.github/scripts/(record-build-history\.sh|merge-history-artifacts\.sh|estimate-cache-hit-rate\.sh|lib/history\.sh)$'
 
 # Global settings
 default_language_version:

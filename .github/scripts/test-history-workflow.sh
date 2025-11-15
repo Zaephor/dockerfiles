@@ -244,12 +244,57 @@ test_update_existing_record() {
   echo -e "${GREEN}OK${NC}"
 }
 
+# Test 6: Cache hit rate estimation
+test_cache_hit_rate_estimation() {
+  echo -n "  [6/6] Estimating cache hit rates... "
+
+  local test_dir="$TEST_DIR/test6"
+  mkdir -p "$test_dir"
+
+  # Create history with known durations (avg = 300s)
+  cat > "$test_dir/history.jsonl" <<'EOF'
+{"version":"sha256:v1","timestamp":"2025-01-01T00:00:00Z","commit":"c1","branch":"main","manual_trigger":false,"trigger_overrides":null,"architectures":{"amd64":{"status":"success","digest":"sha256:d1","duration_seconds":300}}}
+{"version":"sha256:v2","timestamp":"2025-01-02T00:00:00Z","commit":"c2","branch":"main","manual_trigger":false,"trigger_overrides":null,"architectures":{"amd64":{"status":"success","digest":"sha256:d2","duration_seconds":300}}}
+{"version":"sha256:v3","timestamp":"2025-01-03T00:00:00Z","commit":"c3","branch":"main","manual_trigger":false,"trigger_overrides":null,"architectures":{"amd64":{"status":"success","digest":"sha256:d3","duration_seconds":300}}}
+EOF
+
+  # Test fast build (should be > 50%)
+  local rate=$("$SCRIPT_DIR/estimate-cache-hit-rate.sh" "$test_dir" amd64 150)
+  if [ "$rate" == "null" ] || [ -z "$rate" ]; then
+    echo -e "${RED}FAILED${NC} - No rate calculated for fast build"
+    return 1
+  fi
+
+  # Verify it's a valid number between 0-100
+  if ! [[ "$rate" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+    echo -e "${RED}FAILED${NC} - Invalid rate format: $rate"
+    return 1
+  fi
+
+  # Fast build should have high cache rate (> 60%)
+  local rate_int=${rate%.*}
+  if [ "$rate_int" -lt 60 ]; then
+    echo -e "${RED}FAILED${NC} - Expected high cache rate for fast build, got ${rate}%"
+    return 1
+  fi
+
+  # Test with no history (should return null)
+  local rate_no_history=$("$SCRIPT_DIR/estimate-cache-hit-rate.sh" "/tmp/nonexistent" amd64 300)
+  if [ "$rate_no_history" != "null" ]; then
+    echo -e "${RED}FAILED${NC} - Expected null for no history, got $rate_no_history"
+    return 1
+  fi
+
+  echo -e "${GREEN}OK${NC}"
+}
+
 # Run all tests
 test_create_new_file || FAILED=1
 test_merge_parallel_builds || FAILED=1
 test_github_actions_edge_cases || FAILED=1
 test_empty_line_filtering || FAILED=1
 test_update_existing_record || FAILED=1
+test_cache_hit_rate_estimation || FAILED=1
 
 echo ""
 if [ $FAILED -eq 0 ]; then

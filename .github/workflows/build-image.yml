@@ -370,19 +370,23 @@ jobs:
           source .github/scripts/lib/performance-metrics.sh
           source .github/scripts/lib/logging.sh
 
-          # For T021: Cache hit rate calculation would require buildx output parsing
-          # Since buildx output is not directly available in GitHub Actions,
-          # we'll estimate cache hit rate from the build duration compared to baseline
-          # A more accurate approach would require buildx --metadata-file parsing
-          # For now, estimate: if build < 50% of previous time, assume high cache hit
+          # Calculate current build duration
+          # (end-time step runs later, so we calculate inline here)
+          end=$(date +%s)
+          start=${{ steps.start-time.outputs.start }}
+          CURRENT_DURATION=$((end - start))
 
-          # TODO: Implement historical duration comparison when end-time step is available
-          # PREVIOUS_DURATION=steps.end-time.outputs.duration
-
-          # Estimate cache hit rate based on build efficiency
-          # This is a simplified calculation - more precise would require buildx logs
-          # Default to null if insufficient data
-          CACHE_HIT_RATE="null"
+          # Estimate cache hit rate from build duration vs historical average
+          # Uses the last 5 successful builds as baseline
+          # Formula: faster builds = higher cache hit rate
+          if [ -n "$CURRENT_DURATION" ] && [ "$CURRENT_DURATION" != "0" ]; then
+            CACHE_HIT_RATE=$(.github/scripts/estimate-cache-hit-rate.sh \
+              "${{ matrix.config.image.name }}" \
+              "${{ matrix.config.arch }}" \
+              "$CURRENT_DURATION" || echo "null")
+          else
+            CACHE_HIT_RATE="null"
+          fi
 
           echo "cache_hit_rate=${CACHE_HIT_RATE}" >> "$GITHUB_OUTPUT"
 
