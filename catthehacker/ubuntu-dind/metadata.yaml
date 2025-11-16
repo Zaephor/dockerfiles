@@ -29,10 +29,12 @@ tags:
   strategy: variant_only
 
   # Custom tag patterns with template variables
-  # Supported variables: {variant}, {version}, {date}, {arch}
-  # Date format: YYYYMMDD (e.g., 20251116)
+  # Supported variables: {variant}, {version}, {date}, {sha}, {arch}
+  # - {date}: Build date in YYYYMMDD format (e.g., 20251116)
+  # - {sha}: Short upstream digest (first 12 chars, e.g., 0154a41a7030)
   patterns:
     - "{variant}-{date}"  # Date-based tags (e.g., act-24.04-20251116)
+    - "{variant}-{sha}"   # SHA-based tags (e.g., act-24.04-0154a41a7030)
 
 labels:
   org.opencontainers.image.title: "catthehacker/ubuntu-dind"

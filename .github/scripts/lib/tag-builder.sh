@@ -42,6 +42,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/logging.sh"
 #   --registry <reg>      : Registry prefix (optional, defaults to ghcr.io/username/repo)
 #   --tag-strategy <str>  : Tag strategy (optional, e.g., variant_only; controls which tags are generated)
 #   --date <yyyymmdd>     : Build date (optional, format: YYYYMMDD, e.g., 20251116)
+#   --sha <short-sha>     : Short SHA/digest (optional, e.g., 0154a41a7030; first 12 chars of upstream digest)
 #   --custom-pattern <p>  : Custom tag pattern with template variables (optional, can be repeated)
 #
 # Output (stdout):
@@ -60,6 +61,7 @@ build_variant_tags() {
     local registry_prefix=""
     local tag_strategy=""
     local build_date=""
+    local sha=""
     local custom_patterns=()
 
     # Parse arguments
@@ -91,6 +93,10 @@ build_variant_tags() {
                 ;;
             --date)
                 build_date="$2"
+                shift 2
+                ;;
+            --sha)
+                sha="$2"
                 shift 2
                 ;;
             --custom-pattern)
@@ -158,6 +164,7 @@ build_variant_tags() {
         result="${result//\{version\}/$version}"
         result="${result//\{date\}/$build_date}"
         result="${result//\{arch\}/$arch}"
+        result="${result//\{sha\}/$sha}"
 
         echo "$result"
     }

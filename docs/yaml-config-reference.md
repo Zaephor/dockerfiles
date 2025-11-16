@@ -242,18 +242,21 @@ Define custom tag patterns using template variables.
   - `{variant}` - Variant name (e.g., `alpine`, `act-24.04`)
   - `{version}` - Detected version (e.g., `1.2.3`)
   - `{date}` - Build date in YYYYMMDD format (e.g., `20251116`)
+  - `{sha}` - Short upstream digest (first 12 chars of SHA256, e.g., `0154a41a7030`)
   - `{arch}` - Architecture (e.g., `amd64`, `arm64`) - only for arch-specific tags
 - **Example**:
   ```yaml
   tags:
     patterns:
       - "{variant}-{date}"              # act-24.04-20251116
+      - "{variant}-{sha}"               # act-24.04-0154a41a7030
       - "{variant}-{version}"           # act-24.04-1.2.3
       - "{version}-{variant}-{date}"    # 1.2.3-alpine-20251116
   ```
 
 Custom patterns are useful for:
 - **Date-based rollback**: Pin to specific build date (`act-24.04-20251116`)
+- **SHA-based pinning**: Pin to exact upstream digest (`act-24.04-0154a41a7030`)
 - **Hybrid tags**: Combine version and variant (`1.2.3-alpine`)
 - **Tracking versions**: Track upstream version changes per variant
 
@@ -272,14 +275,17 @@ tags:
   strategy: variant_only
   patterns:
     - "{variant}-{date}"
+    - "{variant}-{sha}"
 
 # This generates tags:
 # - ghcr.io/user/repo/image:{commit}            (all variants)
 # - ghcr.io/user/repo/image:{branch}            (all variants)
 # - ghcr.io/user/repo/image:act-24.04           (variant tag)
-# - ghcr.io/user/repo/image:act-24.04-20251116  (custom pattern)
+# - ghcr.io/user/repo/image:act-24.04-20251116  (date pattern)
+# - ghcr.io/user/repo/image:act-24.04-0154a41a7030  (sha pattern)
 # - ghcr.io/user/repo/image:act-22.04           (variant tag)
-# - ghcr.io/user/repo/image:act-22.04-20251116  (custom pattern)
+# - ghcr.io/user/repo/image:act-22.04-20251116  (date pattern)
+# - ghcr.io/user/repo/image:act-22.04-abc123def456  (sha pattern)
 ```
 
 #### `registries`

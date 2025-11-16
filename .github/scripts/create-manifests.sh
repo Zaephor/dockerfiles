@@ -319,6 +319,20 @@ create_all_manifests() {
         local build_date
         build_date=$(date -u +%Y%m%d)
 
+        # Extract upstream SHA from history file (if exists)
+        local upstream_sha=""
+        local history_file="${WORKSPACE}/${image_name}/history-${variant_name}.jsonl"
+        if [ -f "$history_file" ]; then
+          # Get the latest history entry's version field (upstream digest)
+          local upstream_version
+          upstream_version=$(tail -1 "$history_file" | jq -r '.version // ""' 2>/dev/null || echo "")
+
+          # Extract short SHA (first 12 chars after sha256: prefix)
+          if [[ "$upstream_version" =~ ^sha256:([a-f0-9]+)$ ]]; then
+            upstream_sha="${BASH_REMATCH[1]:0:12}"
+          fi
+        fi
+
         # Build tag generation arguments
         local tag_args=(
           --image "$image_name"
@@ -327,6 +341,11 @@ create_all_manifests() {
           --registry "ghcr.io/${ghcr_repo}"
           --date "$build_date"
         )
+
+        # Add SHA if available
+        if [ -n "$upstream_sha" ]; then
+          tag_args+=(--sha "$upstream_sha")
+        fi
 
         if [ -n "$tag_strategy" ]; then
           tag_args+=(--tag-strategy "$tag_strategy")
