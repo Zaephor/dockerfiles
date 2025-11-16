@@ -333,6 +333,108 @@ expand_entry_with_variants() {
     return 0
 }
 
+# Process an image with per-variant version detection and build decisions
+# Parameters:
+#   $1: Image name
+#   $2: Image directory path
+#   $3: Force rebuild (true/false)
+#   $4: Version override (optional)
+# Returns:
+#   Outputs matrix entries (one per variant that should build) to stdout
+#   Returns 0 if any variants processed, 1 on error
+process_image_variants() {
+    local image_name="$1"
+    local image_dir="$2"
+    local force_rebuild="$3"
+    local version_override="${4:-}"
+
+    local config_file="${image_dir}/metadata.yaml"
+    local has_entries=false
+
+    # Discover variants for this image
+    local variants_json
+    if [[ ! "$VARIANT_DISCOVERY_AVAILABLE" == "true" ]]; then
+        # Variant discovery not available - use default variant
+        variants_json='{"variants":[{"name":"default","dockerfile":"'${image_dir}'/Dockerfile"}]}'
+    elif ! variants_json=$(discover_variants --image-dir "$image_dir" 2>/dev/null); then
+        # Discovery failed - fallback to default variant
+        variants_json='{"variants":[{"name":"default","dockerfile":"'${image_dir}'/Dockerfile"}]}'
+    fi
+
+    # Process each variant independently
+    echo "$variants_json" | jq -c '.variants[]' 2>/dev/null | while read -r variant_obj; do
+        local variant_name variant_dockerfile
+        variant_name=$(echo "$variant_obj" | jq -r '.name' 2>/dev/null)
+        variant_dockerfile=$(echo "$variant_obj" | jq -r '.dockerfile' 2>/dev/null)
+
+        # Detect version for THIS variant
+        local detected_version=""
+        if [[ -f "$config_file" ]]; then
+            local version_result
+            if version_result=$("${REPO_ROOT}/.github/scripts/version-detection.sh" --config "$config_file" --image-name "$image_name" --variant "$variant_name" 2>/dev/null); then
+                detected_version=$(echo "$version_result" | jq -r '.version // ""' 2>/dev/null || echo "")
+            fi
+        fi
+
+        # Make build decision for THIS variant
+        local should_build="false"
+        local build_reason="unknown"
+        local build_version="$detected_version"
+
+        if [[ "$force_rebuild" == "true" ]]; then
+            should_build="true"
+            build_reason="force_rebuild"
+            if [[ -n "$version_override" ]]; then
+                build_version="$version_override"
+                build_reason="force_rebuild_with_version_override"
+            fi
+        else
+            # Call should_build_image with variant parameter
+            local build_decision
+            if build_decision=$(should_build_image "$image_name" "$REPO_ROOT" "$detected_version" "$variant_name" 2>/dev/null); then
+                should_build=$(echo "$build_decision" | jq -r '.should_build // false' 2>/dev/null)
+                build_version=$(echo "$build_decision" | jq -r '.version // ""' 2>/dev/null)
+                build_reason=$(echo "$build_decision" | jq -r '.reason // "unknown"' 2>/dev/null)
+            else
+                # Build decision failed - include as safety fallback
+                should_build="true"
+                build_reason="build_decision_error"
+            fi
+        fi
+
+        # If should build, detect architectures and create matrix entry
+        if [[ "$should_build" == "true" ]]; then
+            # Detect supported architectures
+            local detected_archs="amd64 arm64"  # Conservative default
+            if [[ "$ARCHITECTURE_DETECTION_AVAILABLE" == "true" ]]; then
+                local detection_output
+                if detection_output=$(detect_supported_architectures "$image_dir" 2>/dev/null); then
+                    detected_archs=$(echo "$detection_output" | tr -d '\n' | xargs)
+                fi
+            fi
+
+            local entry
+            entry=$(matrix_create_entry "$image_name" "$build_version" "$build_reason" "$detected_archs") || continue
+
+            # Add variant and dockerfile to entry
+            entry=$(echo "$entry" | jq --arg variant "$variant_name" --arg dockerfile "$variant_dockerfile" \
+                '. + {variant: $variant, dockerfile: $dockerfile}' 2>/dev/null)
+
+            if [[ -n "$entry" ]]; then
+                echo "$entry"
+                has_entries=true
+            fi
+        fi
+    done
+
+    # Return success if any entries were output
+    if [[ "$has_entries" == "true" ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
 # ============================================================================
 # Main matrix generation logic
 # ============================================================================
@@ -404,145 +506,37 @@ generate_matrix() {
 
         # Check if this image should be force-rebuilt
         if should_force_rebuild "$image_name" "$force_rebuild_list"; then
-            # Force rebuild: include with force_rebuild reason
-            # Check for version override (Sprint 13)
+            # Force rebuild: process all variants
             local override_version
             override_version=$(get_version_override "$image_name" "$VERSION_OVERRIDE")
-            local rebuild_version="${override_version:-}"
-            local rebuild_reason="force_rebuild"
-            if [[ -n "$override_version" ]]; then
-                rebuild_reason="force_rebuild_with_version_override"
-            fi
 
-            local entry
-            entry=$(matrix_create_entry "$image_name" "$rebuild_version" "$rebuild_reason") || {
-                matrix_log_decision "$image_name" "$rebuild_version" "force_rebuild_create_error" "false"
-                ((failed_count++))
-                continue
-            }
-            # Verify entry is not empty (fallback for jq failures)
-            if [[ -z "$entry" ]]; then
-                matrix_log_error "matrix_create_entry produced no output for $image_name" "Skipping image"
-                ((failed_count++))
-                continue
-            fi
-            # Expand variants (Sprint 11a)
+            # Process variants with force rebuild enabled
             while IFS= read -r variant_entry; do
                 [[ -z "$variant_entry" ]] && continue
                 matrix_entries+=("$variant_entry")
-            done < <(expand_entry_with_variants "$entry" "$image_dir")
+                ((included_count++))
+            done < <(process_image_variants "$image_name" "$image_dir" "true" "$override_version")
+
             matrix_log_decision "$image_name" "" "force_rebuild" "true"
-            ((included_count++))
             continue
         fi
 
-        # Detect version for this image before build decision
-        local detected_version=""
-        local config_file="${image_dir}/metadata.yaml"
-        if [[ -f "$config_file" ]]; then
-            # Call version-detection.sh to detect version
-            local version_result
-            if version_result=$("${REPO_ROOT}/.github/scripts/version-detection.sh" --config "$config_file" --image-name "$image_name" 2>/dev/null); then
-                detected_version=$(echo "$version_result" | jq -r '.version // ""' 2>/dev/null || echo "")
-            fi
-        fi
+        # Process all variants for this image with per-variant version detection
+        local override_version
+        override_version=$(get_version_override "$image_name" "$VERSION_OVERRIDE")
 
-        # If version detection failed or no config, detected_version remains empty
-        # Empty version will trigger build due to no history comparison
+        local variant_count=0
+        while IFS= read -r variant_entry; do
+            [[ -z "$variant_entry" ]] && continue
+            matrix_entries+=("$variant_entry")
+            ((variant_count++))
+        done < <(process_image_variants "$image_name" "$image_dir" "false" "$override_version")
 
-        # Call should_build_image() from Sprint 4b
-        # This function determines if the image needs building based on version history and file changes
-        local build_decision
-        local error_output
-        error_output=$(mktemp) || {
-            matrix_log_error "Failed to create temp file for error capture"
-            ((failed_count++))
-            continue
-        }
-
-        # Capture build decision with error output to temp file (pass detected version)
-        if ! build_decision=$(should_build_image "$image_name" "$REPO_ROOT" "$detected_version" 2>"$error_output"); then
-            # Capture actual error from should_build_image
-            local error_msg
-            error_msg=$(cat "$error_output" 2>/dev/null || echo "Unknown error")
-            rm -f "$error_output"
-
-            # Log error with context
-            matrix_log_error "should_build_image failed for $image_name: $error_msg" "Including in matrix as safety fallback"
-            matrix_log_decision "$image_name" "" "build_decision_error" "true"
-
-            local entry
-            entry=$(matrix_create_entry "$image_name" "" "version_detection_failed") || {
-                ((failed_count++))
-                continue
-            }
-            # Expand variants (Sprint 11a)
-            while IFS= read -r variant_entry; do
-                [[ -z "$variant_entry" ]] && continue
-                matrix_entries+=("$variant_entry")
-            done < <(expand_entry_with_variants "$entry" "$image_dir")
-            ((included_count++))
-            continue
-        fi
-
-        # Cleanup temp file after successful read
-        rm -f "$error_output"
-
-        # Parse build decision JSON
-        # Expected format: {"image_name":"...","should_build":true/false,"reason":"...","version":"..."}
-        local should_build
-        should_build=$(echo "$build_decision" | jq -r '.should_build // false' 2>/dev/null)
-        local version
-        version=$(echo "$build_decision" | jq -r '.version // ""' 2>/dev/null)
-        local reason
-        reason=$(echo "$build_decision" | jq -r '.reason // "unknown"' 2>/dev/null)
-
-        if [[ "$should_build" == "true" ]]; then
-            # Include image in matrix
-            # Check for version override (Sprint 13)
-            local override_version
-            override_version=$(get_version_override "$image_name" "$VERSION_OVERRIDE")
-            if [[ -n "$override_version" ]]; then
-                version="$override_version"
-                reason="version_override"
-            fi
-
-            # Detect supported architectures (Sprint 14)
-            local detected_archs="amd64 arm64"  # Conservative default
-            if [[ "$ARCHITECTURE_DETECTION_AVAILABLE" == "true" ]]; then
-                local detection_output
-                if detection_output=$(detect_supported_architectures "$image_dir" 2>/dev/null); then
-                    # Remove any trailing newlines from detection output
-                    detected_archs=$(echo "$detection_output" | tr -d '\n' | xargs)
-                    log_debug "Detected architectures for $image_name: $detected_archs"
-                else
-                    log_debug "Architecture detection failed for $image_name, using conservative default"
-                    detected_archs="amd64 arm64"
-                fi
-            fi
-
-            local entry
-            entry=$(matrix_create_entry "$image_name" "$version" "$reason" "$detected_archs") || {
-                matrix_log_decision "$image_name" "$version" "$reason" "false"
-                ((failed_count++))
-                continue
-            }
-            # Verify entry is not empty (fallback for jq failures)
-            if [[ -z "$entry" ]]; then
-                matrix_log_error "matrix_create_entry produced no output for $image_name" "Skipping image"
-                ((failed_count++))
-                continue
-            fi
-            # Expand variants (Sprint 11a)
-            while IFS= read -r variant_entry; do
-                [[ -z "$variant_entry" ]] && continue
-                matrix_entries+=("$variant_entry")
-            done < <(expand_entry_with_variants "$entry" "$image_dir")
-            matrix_log_decision "$image_name" "$version" "$reason" "true"
+        if [[ $variant_count -gt 0 ]]; then
+            matrix_log_decision "$image_name" "" "variants_processed" "true"
             ((included_count++))
         else
-            # Skip image
-            matrix_log_decision "$image_name" "$version" "$reason" "false"
+            matrix_log_decision "$image_name" "" "no_variants_need_build" "false"
         fi
     done <<<"$images"
 
