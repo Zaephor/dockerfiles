@@ -110,6 +110,6 @@ done
 
 echo ""
 echo "History merge complete. Updated files:"
-find . -name 'history.jsonl' -type f | while read -r f; do
+find . \( -name 'history.jsonl' -o -name 'history-*.jsonl' \) -type f | while read -r f; do
   echo "  $f ($(wc -l < "$f") lines)"
 done
