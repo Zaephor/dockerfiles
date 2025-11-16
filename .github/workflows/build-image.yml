@@ -197,7 +197,9 @@ jobs:
         run: |
           source .github/scripts/lib/matrix-utils.sh
 
-          # shellcheck disable=SC2153
+          # MATRIX_JSON is set by GitHub Actions via env: key above
+          # Verify it's set and use it (silences SC2153)
+          : "${MATRIX_JSON:?MATRIX_JSON must be set by workflow}"
           EXPANDED=$(matrix_expand_for_architectures "$MATRIX_JSON")
 
           echo "expanded-matrix=$EXPANDED" >> "$GITHUB_OUTPUT"
@@ -368,9 +370,7 @@ jobs:
         id: metrics
         if: steps.build.outcome == 'success'
         run: |
-          # shellcheck disable=SC2034
-          # Source performance metrics library
-          source .github/scripts/lib/performance-metrics.sh
+          # Source logging library (performance-metrics not needed in this step)
           source .github/scripts/lib/logging.sh
 
           # Calculate current build duration
