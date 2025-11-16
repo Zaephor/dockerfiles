@@ -3,6 +3,9 @@ name: Build and Push Docker Images
 on:
   push:
     branches: '**'
+  schedule:
+    # Run daily at 2 AM UTC to check for upstream image updates
+    - cron: '0 2 * * *'
   workflow_dispatch:
     inputs:
       dry_run:
