@@ -85,6 +85,14 @@ repos:
         pass_filenames: false
         files: '^(\.github/scripts/(generate-matrix\.sh|lib/(matrix-utils|variant-discovery|architecture-detection|conditional-builds|logging)\.sh)|tests/integration/matrix-generation\.bats)$'
 
+      - id: validate-doc-references
+        name: Validate documentation references
+        description: Validates internal markdown links point to existing files
+        entry: .github/scripts/validate-doc-references.sh
+        language: script
+        pass_filenames: false
+        files: '^(README\.md|CONTRIBUTING\.md|docs/.*\.md)$'
+
 # Global settings
 default_language_version:
   python: python3
