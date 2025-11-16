@@ -12,6 +12,7 @@ This repository automates building and publishing Docker images to GHCR (GitHub 
 - **Advanced tagging system** - custom patterns with date, SHA, version, and variant variables
 - **Variant filtering** - control which Dockerfile variants build with enforceable allow-lists
 - **Build history tracking** - complete version history for auditing and rollback
+- **Historical version rebuilds** - rebuild past versions with corrected Dockerfiles
 - **Graceful degradation** - if one architecture fails, publish what succeeded
 - **Contributor-friendly** - add a new image with just a Dockerfile and metadata.yaml
 
@@ -160,6 +161,21 @@ gh workflow run build-image.yml -f force_rebuild=true
 
 # Dry run (preview changes)
 gh workflow run build-image.yml -f dry_run=true
+```
+
+### Rebuild Historical Versions
+```bash
+# View version history
+jq -r '.version + " (" + .timestamp + ")"' hello-world/history.jsonl
+
+# Rebuild a specific historical version (e.g., after fixing Dockerfile)
+gh workflow run build-image.yml \
+  -f rebuild_mode=true \
+  -f rebuild_target_version="v1.0.0" \
+  -f image_filter="hello-world" \
+  -f rebuild_reason="add_missing_dependency"
+
+# See detailed documentation: docs/workflows.md#rebuilding-historical-versions-rewind-feature
 ```
 
 ### Query Build History

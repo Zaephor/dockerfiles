@@ -296,10 +296,21 @@ Manually trigger workflows with granular control options.
 
 **Workflow Dispatch Inputs**:
 ```yaml
+# Build Control
 force_rebuild: # boolean - Force rebuild of all images regardless of changes
 image_filter:  # string - Comma-separated image names to rebuild (only these)
 skip_images:   # string - Comma-separated image names to skip
 version_override: # string - Image=version pairs (hello-world=v1.0.0,other=v2.0.0)
+
+# Rebuild Mode (Historical Versions)
+rebuild_mode: # boolean - Enable rebuild mode for historical versions
+rebuild_target_version: # string - Version from history to rebuild (e.g., "v1.0.0")
+rebuild_reason: # string - Reason for rebuild (e.g., "add_missing_dependency")
+skip_tag_update: # boolean - Skip tag updates during rebuild
+
+# Advanced
+force_architectures: # string - Override architectures (comma-separated)
+dry_run: # boolean - Run in dry-run mode (detect changes without building)
 ```
 
 **Examples**:
@@ -330,6 +341,167 @@ version_override: # string - Image=version pairs (hello-world=v1.0.0,other=v2.0.
   }
 }
 ```
+
+### Rebuilding Historical Versions (Rewind Feature)
+
+When you discover an issue (like a missing dependency) after several builds have occurred, you can rebuild historical versions with the corrected Dockerfile.
+
+**Common Scenario**:
+1. System builds several iterations automatically (v1.0.0, v1.0.1, v1.0.2)
+2. Discover missing dependency in Dockerfile
+3. Fix Dockerfile and let it build latest version (v1.0.3 now has the fix)
+4. Rebuild historical versions (v1.0.0 - v1.0.2) with the corrected Dockerfile
+
+**Workflow Inputs for Rebuild Mode**:
+```yaml
+rebuild_mode: true                      # Enable historical rebuild
+rebuild_target_version: "v1.0.0"        # Version from history to rebuild
+image_filter: "hello-world"             # Required: image to rebuild
+rebuild_reason: "add_missing_dependency" # Optional: reason for rebuild
+skip_tag_update: false                  # Optional: skip tag updates (default: false)
+```
+
+#### Step-by-Step: Rebuild After Fixing Dockerfile
+
+**Step 1: Fix the Dockerfile and build latest**
+```bash
+# Fix your Dockerfile (add missing dependency)
+vim hello-world/Dockerfile
+
+# Commit and push - this builds the latest version
+git add hello-world/Dockerfile
+git commit -m "fix: add missing libssl dependency"
+git push
+```
+
+**Step 2: Find historical versions to rebuild**
+```bash
+# View version history for your image
+jq -r '.version + " (" + .timestamp + ")"' hello-world/history.jsonl
+
+# Example output:
+# v1.0.0 (2025-11-13T10:00:00Z)
+# v1.0.1 (2025-11-14T10:00:00Z)
+# v1.0.2 (2025-11-15T10:00:00Z)
+# v1.0.3 (2025-11-16T10:00:00Z)  ← latest with fix
+```
+
+**Step 3: Rebuild each historical version**
+```bash
+# Rebuild v1.0.0 with the corrected Dockerfile
+gh workflow run build-image.yml \
+  -f rebuild_mode=true \
+  -f rebuild_target_version="v1.0.0" \
+  -f image_filter="hello-world" \
+  -f rebuild_reason="add_missing_dependency"
+
+# Rebuild v1.0.1 with the corrected Dockerfile
+gh workflow run build-image.yml \
+  -f rebuild_mode=true \
+  -f rebuild_target_version="v1.0.1" \
+  -f image_filter="hello-world" \
+  -f rebuild_reason="add_missing_dependency"
+
+# Rebuild v1.0.2 with the corrected Dockerfile
+gh workflow run build-image.yml \
+  -f rebuild_mode=true \
+  -f rebuild_target_version="v1.0.2" \
+  -f image_filter="hello-world" \
+  -f rebuild_reason="add_missing_dependency"
+```
+
+**What Happens During a Rebuild**:
+1. Workflow validates that the target version exists in `history.jsonl`
+2. Extracts the original commit SHA from history for that version
+3. Checks out the repository at that historical commit (detached HEAD)
+4. Uses the **current** (fixed) Dockerfile from your working branch
+5. Builds the image with the same version tag
+6. Updates Docker tags (overwrites existing tags with corrected image)
+7. Records rebuild in history with metadata:
+   ```json
+   {
+     "version": "v1.0.0",
+     "rebuild_metadata": {
+       "reason": "add_missing_dependency",
+       "triggered_at": "2025-11-16T14:00:00Z",
+       "original_commit": "abc123",
+       "rebuild_branch_head": "def456"
+     }
+   }
+   ```
+
+#### Tag Management During Rebuilds
+
+By default, rebuilding a version will update its Docker tags:
+
+**For SemVer versions** (e.g., `v1.2.3`):
+- **Always updates**: Full version tag (`v1.2.3`)
+- **Conditionally updates**: Major.minor tag (`v1.2`) if this version is latest in `v1.2.x` lineage
+- **Conditionally updates**: Major tag (`v1`) and `latest` if this version is globally latest
+
+**Skip tag updates** (rebuild without moving tags):
+```bash
+# Rebuild without updating any tags (just regenerate the image)
+gh workflow run build-image.yml \
+  -f rebuild_mode=true \
+  -f rebuild_target_version="v1.0.0" \
+  -f image_filter="hello-world" \
+  -f skip_tag_update=true
+```
+
+**When to skip tag updates**:
+- Testing rebuild process without affecting users
+- Regenerating images for compliance/audit purposes
+- Rebuilding old versions without changing `latest` or major tags
+
+#### Verify Rebuild Success
+
+```bash
+# Check workflow run status
+gh run list --workflow=build-image.yml --limit 5
+
+# Verify new history entry was recorded
+jq -r 'select(.rebuild_metadata) | .version + " rebuilt: " + .rebuild_metadata.reason' \
+  hello-world/history.jsonl
+
+# Pull and test the rebuilt image
+docker pull ghcr.io/your-org/hello-world:v1.0.0
+docker run ghcr.io/your-org/hello-world:v1.0.0
+```
+
+#### Batch Rebuild Multiple Versions
+
+For rebuilding many versions, use a script:
+
+```bash
+#!/bin/bash
+# rebuild-range.sh - Rebuild versions v1.0.0 through v1.0.5
+
+IMAGE="hello-world"
+REASON="add_missing_dependency"
+VERSIONS=("v1.0.0" "v1.0.1" "v1.0.2" "v1.0.3" "v1.0.4" "v1.0.5")
+
+for version in "${VERSIONS[@]}"; do
+  echo "Triggering rebuild for $version..."
+  gh workflow run build-image.yml \
+    -f rebuild_mode=true \
+    -f rebuild_target_version="$version" \
+    -f image_filter="$IMAGE" \
+    -f rebuild_reason="$REASON"
+
+  # Optional: wait between triggers to avoid overwhelming runners
+  sleep 10
+done
+
+echo "All rebuild triggers sent. Monitor with: gh run list"
+```
+
+**Important Notes**:
+- Rebuilds use the **current Dockerfile** from your branch, not the historical one
+- Original version metadata (commit SHA, timestamp) is preserved in rebuild_metadata
+- Rebuild history entries are appended to `history.jsonl` (append-only)
+- If a version doesn't exist in history, rebuild will fail with validation error
+- Multi-arch builds work normally (rebuilds for all supported architectures)
 
 ### Structured Workflow Logging
 
