@@ -9,6 +9,8 @@ This repository automates building and publishing Docker images to GHCR (GitHub 
 - **Automatic version detection** from upstream sources (GitHub Releases, Docker Hub, HTTP APIs)
 - **Multi-architecture support** (amd64 and arm64 native builds)
 - **Intelligent change detection** - only rebuild when something changes
+- **Advanced tagging system** - custom patterns with date, SHA, version, and variant variables
+- **Variant filtering** - control which Dockerfile variants build with enforceable allow-lists
 - **Build history tracking** - complete version history for auditing and rollback
 - **Graceful degradation** - if one architecture fails, publish what succeeded
 - **Contributor-friendly** - add a new image with just a Dockerfile and metadata.yaml

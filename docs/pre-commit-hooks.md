@@ -36,6 +36,22 @@ This project uses [pre-commit](https://pre-commit.com/) to enforce code quality 
   - List formatting
   - Line length (warnings)
 
+### Documentation References
+- **validate-doc-references**: Validates internal markdown links
+  - Checks links in README.md, CONTRIBUTING.md, docs/
+  - Handles relative paths and anchor fragments
+  - Prevents broken documentation links
+
+### Project-Specific Tests
+- **test-history-workflow**: Validates build history tracking
+  - Ensures history.jsonl files are valid JSON
+  - Checks for no empty lines
+  - Tests merge-history-artifacts.sh logic
+- **test-matrix-generation**: Validates build matrix generation
+  - Tests matrix-generation with BATS
+  - Validates JSON format and stdout/stderr separation
+  - Checks for unbound variables
+
 ### General
 - Remove trailing whitespace
 - Ensure files end with newline
@@ -95,10 +111,13 @@ pre-commit run --all-files
 
 Run a specific hook:
 ```bash
-pre-commit run actionlint          # Check workflows
-pre-commit run hadolint-docker     # Check Dockerfiles
-pre-commit run shellcheck          # Check shell scripts
-pre-commit run yamllint            # Check YAML files
+pre-commit run actionlint                # Check workflows
+pre-commit run hadolint-docker           # Check Dockerfiles
+pre-commit run shellcheck                # Check shell scripts
+pre-commit run yamllint                  # Check YAML files
+pre-commit run validate-doc-references   # Check documentation links
+pre-commit run test-matrix-generation    # Test matrix generation
+pre-commit run test-history-workflow     # Test history tracking
 ```
 
 ## Skipping Hooks
