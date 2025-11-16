@@ -167,12 +167,13 @@ When to override:
 
 #### `variants`
 
-Define alternative Dockerfile variants for the same image.
+Define and control which Dockerfile variants are built for an image.
 
 - **Type**: Array of strings
 - **Required**: No
-- **Default**: Only main Dockerfile
+- **Default**: All discovered `Dockerfile.*` files
 - **File mapping**: Variant `alpine` maps to `Dockerfile.alpine`
+- **Filtering**: When specified, only listed variants will be built
 - **Example**:
   ```yaml
   variants: [alpine, slim, distroless]
@@ -181,17 +182,42 @@ Define alternative Dockerfile variants for the same image.
 This requires Dockerfile files:
 ```
 my-image/
-├── Dockerfile                  # main/default variant
+├── Dockerfile                  # main/default variant (always included)
 ├── Dockerfile.alpine           # alpine variant
 ├── Dockerfile.slim             # slim variant
 └── Dockerfile.distroless       # distroless variant
 ```
 
+##### Variant Filtering Behavior
+
+**When `variants` field is omitted or empty:**
+- System discovers all `Dockerfile.*` files in the image directory
+- All discovered variants are built
+- Useful during development or when all variants should always build
+
+**When `variants` field is specified:**
+- Only listed variants are built
+- Discovered `Dockerfile.*` files not in the list are excluded with a warning
+- The default variant (`Dockerfile`) is always included, regardless of this list
+- Prevents accidental builds of old or test Dockerfiles
+
+**Example**: Enforceable filtering
+```yaml
+# Directory contains: Dockerfile.act-22.04, Dockerfile.act-24.04, Dockerfile.act-20.04
+variants:
+  - act-22.04
+  - act-24.04
+# Result: Only act-22.04 and act-24.04 are built
+# Warning: "Excluded variants: act-20.04"
+```
+
+##### Variant Properties
+
 Each variant:
 - Built independently for all architectures
 - Tagged separately: `my-image:1.2.3-alpine`, `my-image:1.2.3-slim`
 - Can have different base images or configurations
-- Shares same version source (all variants same version)
+- Shares same version source (all variants use same detected version)
 
 #### `tags`
 

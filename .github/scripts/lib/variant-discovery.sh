@@ -27,6 +27,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/logging.sh"
 #
 # Arguments:
 #   --image-dir <path>: Absolute path to image directory (required)
+#   --metadata <path>: Optional path to metadata.yaml for variant filtering
 #
 # Output (stdout):
 #   JSON object with variants array:
@@ -53,12 +54,17 @@ source "$(dirname "${BASH_SOURCE[0]}")/logging.sh"
 #######################################
 discover_variants() {
     local image_dir=""
+    local metadata_file=""
 
     # Parse arguments
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --image-dir)
                 image_dir="$2"
+                shift 2
+                ;;
+            --metadata)
+                metadata_file="$2"
                 shift 2
                 ;;
             *)
@@ -113,7 +119,7 @@ discover_variants() {
 
         # Validate variant name
         if ! validate_variant_name "$variant_name"; then
-            log_warning "Skipping variant with invalid name: $variant_name (must be lowercase alphanumeric with hyphens and dots)"
+            echo "WARNING: Skipping variant with invalid name: $variant_name (must be lowercase alphanumeric with hyphens and dots)" >&2
             continue
         fi
 
@@ -125,6 +131,74 @@ discover_variants() {
     if [[ ${#variants[@]} -eq 0 ]]; then
         error "No Dockerfile or Dockerfile.* variants found in $image_dir"
         return 2
+    fi
+
+    # Read allowed variants from metadata.yaml if provided
+    local allowed_variants=()
+    local filter_enabled=false
+
+    if [[ -n "$metadata_file" && -f "$metadata_file" ]]; then
+        # Check if variants field exists and is not empty
+        local variants_count
+        variants_count=$(yq eval '.variants | length' "$metadata_file" 2>/dev/null || echo "0")
+
+        if [[ "$variants_count" != "0" && "$variants_count" != "null" ]]; then
+            filter_enabled=true
+
+            # Read allowed variants into array
+            for ((i=0; i<variants_count; i++)); do
+                local allowed_variant
+                allowed_variant=$(yq eval ".variants[$i]" "$metadata_file" 2>/dev/null || echo "")
+                if [[ -n "$allowed_variant" && "$allowed_variant" != "null" ]]; then
+                    allowed_variants+=("$allowed_variant")
+                fi
+            done
+        fi
+    fi
+
+    # Filter variants if filtering is enabled
+    local filtered_variants=()
+    local excluded_variants=()
+
+    if [[ "$filter_enabled" == true ]]; then
+        for variant in "${variants[@]}"; do
+            IFS=':' read -r name path <<< "$variant"
+
+            # Default variant is always included (not subject to filtering)
+            if [[ "$name" == "default" ]]; then
+                filtered_variants+=("$variant")
+                continue
+            fi
+
+            # Check if variant is in allowed list
+            local is_allowed=false
+            for allowed in "${allowed_variants[@]}"; do
+                if [[ "$name" == "$allowed" ]]; then
+                    is_allowed=true
+                    break
+                fi
+            done
+
+            if [[ "$is_allowed" == true ]]; then
+                filtered_variants+=("$variant")
+            else
+                excluded_variants+=("$name")
+            fi
+        done
+
+        # Warn about excluded variants
+        if [[ ${#excluded_variants[@]} -gt 0 ]]; then
+            echo "WARNING: Excluded variants (Dockerfile exists but not in metadata.yaml variants list): ${excluded_variants[*]}" >&2
+        fi
+
+        # Use filtered list
+        variants=("${filtered_variants[@]}")
+
+        # Ensure at least one variant remains after filtering
+        if [[ ${#variants[@]} -eq 0 ]]; then
+            error "All discovered variants were filtered out by metadata.yaml variants list"
+            return 2
+        fi
     fi
 
     # Build JSON array of variants

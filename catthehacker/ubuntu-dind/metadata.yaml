@@ -11,12 +11,12 @@ version_source:
   tag: "{variant}"  # Template: replaced with act-22.04, act-24.04, etc.
   auth_token_secret: GITHUB_TOKEN
 
-# NOTE: The variants field below is currently documentation-only
-# The system auto-discovers variants by scanning for Dockerfile.* files
-# See: https://github.com/zaephor/dockerfiles/issues/XXX
-# variants:
-#   - act-24.04
-#   - act-22.04
+# Enforceable variant filtering: Only listed variants will be built
+# If omitted or empty, all discovered Dockerfile.* files will be built
+# The default variant (Dockerfile) is always included regardless of this list
+variants:
+  - act-24.04
+  - act-22.04
 
 architectures:
   - amd64
