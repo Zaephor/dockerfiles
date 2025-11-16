@@ -19,7 +19,7 @@
 #   0: Success (matrix generated, even if empty)
 #   1: Error (falls back to building all images)
 
-set -o pipefail
+set -euo pipefail
 
 # ============================================================================
 # Configuration
