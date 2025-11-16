@@ -109,7 +109,7 @@ parse_arguments() {
                 VERSION_OVERRIDE="$1"
                 ;;
             *)
-                log_error "Unknown option: $1"
+                error "Unknown option: $1"
                 return 1
                 ;;
         esac
@@ -129,7 +129,7 @@ validate_tools() {
     fi
 
     if ! command -v git &>/dev/null; then
-        log_error "git is required but not found"
+        error "git is required but not found"
         return 1
     fi
 
@@ -566,7 +566,7 @@ generate_matrix() {
     # Set GitHub Actions output if in CI environment
     if [[ -n "$GITHUB_OUTPUT" ]]; then
         if ! matrix_set_output "matrix" "$matrix_json"; then
-            log_error "Failed to set GitHub Actions output"
+            error "Failed to set GitHub Actions output"
             return 1
         fi
     fi
@@ -579,7 +579,7 @@ generate_matrix() {
 # ============================================================================
 
 generate_fallback_matrix() {
-    log_error "Matrix generation failed - falling back to building all images"
+    error "Matrix generation failed - falling back to building all images"
 
     # Discover images for fallback
     local images

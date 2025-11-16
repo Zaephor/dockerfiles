@@ -20,6 +20,9 @@ fi
 if ! declare -F log_warn >/dev/null 2>&1; then
   log_warn() { echo "[WARN] $*" >&2; }
 fi
+if ! declare -F error >/dev/null 2>&1; then
+  error() { echo "[ERROR] $*" >&2; }
+fi
 if ! declare -F log_error >/dev/null 2>&1; then
   log_error() { echo "[ERROR] $*" >&2; }
 fi
@@ -319,7 +322,7 @@ detect_from_manual_config() {
 
   # Validate architecture configuration
   if ! validate_architecture_config "$archs_str" 2>/dev/null; then
-    log_error "Invalid architecture configuration in $metadata_file: $archs_str"
+    error "Invalid architecture configuration in $metadata_file: $archs_str"
     return 1
   fi
 
@@ -347,7 +350,7 @@ detect_supported_architectures() {
   local image_dir="$1"
 
   if [[ ! -d "$image_dir" ]]; then
-    log_error "Image directory not found: $image_dir"
+    error "Image directory not found: $image_dir"
     return 1
   fi
 

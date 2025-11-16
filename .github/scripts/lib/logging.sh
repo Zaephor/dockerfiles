@@ -72,6 +72,26 @@ log_structured() {
   fi
 }
 
+# error: Log general error message without image/arch context
+#
+# Arguments:
+#   MESSAGE: Error message
+#
+# Outputs:
+#   - Error message to stderr
+#   - GitHub Actions error annotation (if in GitHub Actions)
+#
+error() {
+  local message="$1"
+
+  echo "ERROR: $message" >&2
+
+  # Add GitHub Actions annotation if available
+  if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
+    echo "::error::$message"
+  fi
+}
+
 # log_error: Log error message with GitHub Actions annotation
 #
 # Arguments:
@@ -262,6 +282,7 @@ log_end_section() {
 }
 
 export -f log_structured
+export -f error
 export -f log_error
 export -f log_warning
 export -f log_notice

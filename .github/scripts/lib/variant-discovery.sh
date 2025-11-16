@@ -62,7 +62,7 @@ discover_variants() {
                 shift 2
                 ;;
             *)
-                log_error "Unknown argument: $1"
+                error "Unknown argument: $1"
                 return 1
                 ;;
         esac
@@ -70,13 +70,13 @@ discover_variants() {
 
     # Validate required arguments
     if [[ -z "$image_dir" ]]; then
-        log_error "Missing required argument: --image-dir"
+        error "Missing required argument: --image-dir"
         return 1
     fi
 
     # Check directory exists
     if [[ ! -d "$image_dir" ]]; then
-        log_error "Image directory not found: $image_dir"
+        error "Image directory not found: $image_dir"
         return 1
     fi
 
@@ -123,7 +123,7 @@ discover_variants() {
 
     # Ensure at least one Dockerfile was found
     if [[ ${#variants[@]} -eq 0 ]]; then
-        log_error "No Dockerfile or Dockerfile.* variants found in $image_dir"
+        error "No Dockerfile or Dockerfile.* variants found in $image_dir"
         return 2
     fi
 
@@ -214,7 +214,7 @@ get_dockerfile_path() {
     local variant="$2"
 
     if [[ -z "$image_dir" || -z "$variant" ]]; then
-        log_error "Missing required arguments: image_dir and variant"
+        error "Missing required arguments: image_dir and variant"
         return 1
     fi
 
@@ -227,7 +227,7 @@ get_dockerfile_path() {
 
     # Check file exists
     if [[ ! -f "$dockerfile_path" ]]; then
-        log_error "Dockerfile not found for variant '$variant': $dockerfile_path"
+        error "Dockerfile not found for variant '$variant': $dockerfile_path"
         return 1
     fi
 

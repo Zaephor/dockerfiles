@@ -86,7 +86,7 @@ build_variant_tags() {
                 shift 2
                 ;;
             *)
-                log_error "Unknown argument: $1"
+                error "Unknown argument: $1"
                 return 1
                 ;;
         esac
@@ -94,23 +94,23 @@ build_variant_tags() {
 
     # Validate required arguments
     if [[ -z "$image_name" ]]; then
-        log_error "Missing required argument: --image"
+        error "Missing required argument: --image"
         return 1
     fi
 
     if [[ -z "$version" ]]; then
-        log_error "Missing required argument: --version"
+        error "Missing required argument: --version"
         return 1
     fi
 
     # Validate version is not empty or whitespace-only
     if [[ "$version" =~ ^[[:space:]]*$ ]]; then
-        log_error "Invalid version: empty or whitespace-only"
+        error "Invalid version: empty or whitespace-only"
         return 1
     fi
 
     if [[ -z "$variant" ]]; then
-        log_error "Missing required argument: --variant"
+        error "Missing required argument: --variant"
         return 1
     fi
 
@@ -121,7 +121,7 @@ build_variant_tags() {
                 # Valid architecture
                 ;;
             *)
-                log_error "Invalid architecture: $arch (must be amd64 or arm64)"
+                error "Invalid architecture: $arch (must be amd64 or arm64)"
                 return 1
                 ;;
         esac
