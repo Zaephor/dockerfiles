@@ -539,6 +539,7 @@ jobs:
           .github/scripts/record-build-history.sh \
             --image-dir "${{ matrix.config.image.name }}" \
             --version "${{ matrix.config.image.version }}" \
+            --variant "${{ matrix.config.image.variant }}" \
             --commit "${{ github.sha }}" \
             --branch "${{ github.ref_name }}" \
             --arch "${{ matrix.config.arch }}" \
@@ -557,10 +558,21 @@ jobs:
           # Create a temp directory with the image path metadata
           mkdir -p /tmp/history-upload
           echo "${{ matrix.config.image.name }}" > /tmp/history-upload/image_path.txt
+          echo "${{ matrix.config.image.variant }}" > /tmp/history-upload/variant.txt
+
+          # Determine history file path based on variant
+          IMAGE_DIR="${{ matrix.config.image.name }}"
+          VARIANT="${{ matrix.config.image.variant }}"
+
+          if [ -z "$VARIANT" ] || [ "$VARIANT" = "default" ]; then
+            HISTORY_FILE="$IMAGE_DIR/history.jsonl"
+          else
+            HISTORY_FILE="$IMAGE_DIR/history-${VARIANT}.jsonl"
+          fi
 
           # Copy history file if it exists
-          if [ -f "${{ matrix.config.image.name }}/history.jsonl" ]; then
-            cp "${{ matrix.config.image.name }}/history.jsonl" /tmp/history-upload/
+          if [ -f "$HISTORY_FILE" ]; then
+            cp "$HISTORY_FILE" /tmp/history-upload/history.jsonl
           fi
 
       - name: Upload history artifact

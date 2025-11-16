@@ -12,8 +12,8 @@ ARTIFACTS_DIR="${1:-/tmp/history-artifacts}"
 
 echo "Merging history files from artifacts..."
 
-# Track which images we've processed
-declare -A processed_images
+# Track which image+variant combinations we've processed
+declare -A processed_targets
 
 for artifact_dir in "$ARTIFACTS_DIR"/history-*; do
   if [ ! -d "$artifact_dir" ]; then
@@ -23,8 +23,9 @@ for artifact_dir in "$ARTIFACTS_DIR"/history-*; do
   artifact_name=$(basename "$artifact_dir")
   echo "Processing artifact: $artifact_name"
 
-  # Read the image path from metadata
+  # Read the image path and variant from metadata
   image_path_file="$artifact_dir/image_path.txt"
+  variant_file="$artifact_dir/variant.txt"
   history_file="$artifact_dir/history.jsonl"
 
   if [ ! -f "$image_path_file" ]; then
@@ -39,32 +40,48 @@ for artifact_dir in "$ARTIFACTS_DIR"/history-*; do
 
   # Read the image directory path
   image_dir=$(cat "$image_path_file")
-  echo "  Image directory: $image_dir"
 
-  target_file="${image_dir}/history.jsonl"
+  # Read variant (may not exist for older artifacts)
+  variant=""
+  if [ -f "$variant_file" ]; then
+    variant=$(cat "$variant_file")
+  fi
+
+  echo "  Image directory: $image_dir"
+  echo "  Variant: ${variant:-default}"
+
+  # Determine target file based on variant
+  if [ -z "$variant" ] || [ "$variant" = "default" ]; then
+    target_file="${image_dir}/history.jsonl"
+    target_key="${image_dir}"
+  else
+    target_file="${image_dir}/history-${variant}.jsonl"
+    target_key="${image_dir}::${variant}"
+  fi
+
   mkdir -p "$(dirname "$target_file")"
 
-  # Mark this image as processed
-  processed_images["$image_dir"]=1
+  # Mark this image+variant as processed
+  processed_targets["$target_key"]="$target_file"
 
-  # Append to a temp aggregation file for this image
-  temp_agg="/tmp/history-agg-${image_dir//\//_}.jsonl"
+  # Append to a temp aggregation file for this image+variant
+  temp_agg="/tmp/history-agg-${target_key//[\/:]/_}.jsonl"
   cat "$history_file" >> "$temp_agg"
 done
 
 echo ""
 echo "Merging duplicate records by version..."
 
-# Now process each image's aggregated file
-for image_dir in "${!processed_images[@]}"; do
-  temp_agg="/tmp/history-agg-${image_dir//\//_}.jsonl"
-  target_file="${image_dir}/history.jsonl"
+# Now process each image+variant's aggregated file
+for target_key in "${!processed_targets[@]}"; do
+  target_file="${processed_targets[$target_key]}"
+  temp_agg="/tmp/history-agg-${target_key//[\/:]/_}.jsonl"
 
   if [ ! -f "$temp_agg" ]; then
     continue
   fi
 
-  echo "Processing $image_dir:"
+  echo "Processing $target_key -> $(basename "$target_file"):"
 
   # Use jq to merge records with the same version
   # Group by version, then merge architectures
