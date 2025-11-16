@@ -77,6 +77,14 @@ repos:
         pass_filenames: false
         files: '^\.github/scripts/(record-build-history\.sh|merge-history-artifacts\.sh|estimate-cache-hit-rate\.sh|lib/history\.sh)$'
 
+      - id: test-matrix-generation
+        name: Test matrix generation
+        description: Validates matrix generation (JSON format, stdout/stderr, exit codes, no unbound vars)
+        entry: bats tests/integration/matrix-generation.bats
+        language: system
+        pass_filenames: false
+        files: '^(\.github/scripts/(generate-matrix\.sh|lib/(matrix-utils|variant-discovery|architecture-detection|conditional-builds|logging)\.sh)|tests/integration/matrix-generation\.bats)$'
+
 # Global settings
 default_language_version:
   python: python3
