@@ -605,7 +605,8 @@ generate_fallback_matrix() {
         printf '%s\n' "${matrix_entries[@]}" | matrix_build_json
     fi
 
-    return 1
+    # Fallback succeeded - we have a valid matrix to build
+    return 0
 }
 
 # ============================================================================
@@ -621,8 +622,12 @@ main() {
     # Generate matrix
     if ! generate_matrix; then
         # On critical error, fall back to building all images
-        generate_fallback_matrix
-        return 1
+        # If fallback succeeds, return 0 (we have a valid matrix)
+        if generate_fallback_matrix; then
+            return 0
+        else
+            return 1
+        fi
     fi
 
     return 0
