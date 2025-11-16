@@ -404,6 +404,9 @@ process_image_variants() {
 
         # If should build, detect architectures and create matrix entry
         if [[ "$should_build" == "true" ]]; then
+            # Log variant decision (INCLUDE)
+            matrix_log_decision "$image_name" "$build_version" "$build_reason" "true" "$variant_name"
+
             # Detect supported architectures
             local detected_archs="amd64 arm64"  # Conservative default
             if [[ "$ARCHITECTURE_DETECTION_AVAILABLE" == "true" ]]; then
@@ -424,6 +427,9 @@ process_image_variants() {
                 echo "$entry"
                 has_entries=true
             fi
+        else
+            # Log variant decision (SKIP)
+            matrix_log_decision "$image_name" "$build_version" "$build_reason" "false" "$variant_name"
         fi
     done
 
@@ -532,11 +538,9 @@ generate_matrix() {
             ((variant_count++))
         done < <(process_image_variants "$image_name" "$image_dir" "false" "$override_version")
 
+        # Track if any variants were included (per-variant decisions already logged)
         if [[ $variant_count -gt 0 ]]; then
-            matrix_log_decision "$image_name" "" "variants_processed" "true"
             ((included_count++))
-        else
-            matrix_log_decision "$image_name" "" "no_variants_need_build" "false"
         fi
     done <<<"$images"
 

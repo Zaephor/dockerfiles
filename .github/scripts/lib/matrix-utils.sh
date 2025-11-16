@@ -144,6 +144,7 @@ matrix_log_decision() {
     local version="$2"
     local reason="$3"
     local included="$4"
+    local variant="${5:-}"  # Optional variant parameter
 
     local decision
     if [[ "$included" == "true" ]]; then
@@ -152,7 +153,12 @@ matrix_log_decision() {
         decision="SKIP"
     fi
 
-    echo "Matrix Decision: [$decision] Image: $image_name, Version: ${version:-unknown}, Reason: $reason"
+    # Include variant in output if provided
+    if [[ -n "$variant" && "$variant" != "default" ]]; then
+        echo "Matrix Decision: [$decision] Image: $image_name, Variant: $variant, Version: ${version:-unknown}, Reason: $reason"
+    else
+        echo "Matrix Decision: [$decision] Image: $image_name, Version: ${version:-unknown}, Reason: $reason"
+    fi
     return 0
 }
 
