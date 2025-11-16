@@ -168,9 +168,16 @@ build_variant_tags() {
             local expanded_tag
             expanded_tag=$(expand_tag_pattern "$pattern")
 
-            # Only add tag if all required variables were provided
-            # (pattern won't have empty placeholders)
-            if [[ ! "$expanded_tag" =~ \{\} ]] && [[ -n "$expanded_tag" ]]; then
+            # Validate expanded tag:
+            # 1. No remaining template variables (braces)
+            # 2. No empty/whitespace-only tags
+            # 3. No malformed separators (leading/trailing/double dashes)
+            if [[ ! "$expanded_tag" =~ \{ ]] && \
+               [[ ! "$expanded_tag" =~ \} ]] && \
+               [[ -n "$expanded_tag" ]] && \
+               [[ ! "$expanded_tag" =~ ^- ]] && \
+               [[ ! "$expanded_tag" =~ -$ ]] && \
+               [[ ! "$expanded_tag" =~ -- ]]; then
                 tags+=("${registry_prefix}/${image_name}:${expanded_tag}")
             fi
         done
