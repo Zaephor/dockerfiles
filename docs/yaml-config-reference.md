@@ -193,6 +193,95 @@ Each variant:
 - Can have different base images or configurations
 - Shares same version source (all variants same version)
 
+#### `tags`
+
+Control Docker image tag generation with custom patterns and strategies.
+
+- **Type**: Object
+- **Required**: No
+- **Default**: Standard tagging (version, variant, latest)
+- **Example**:
+  ```yaml
+  tags:
+    strategy: variant_only
+    patterns:
+      - "{variant}-{date}"
+      - "{variant}-{version}"
+  ```
+
+##### Tag Strategy
+
+Controls which tags are automatically generated for variants.
+
+- **Type**: String (enum)
+- **Required**: No
+- **Default**: `default` (all variant tags)
+- **Valid values**:
+  - `default` - Generate all variant tags (version-variant, variant, latest-variant)
+  - `variant_only` - Only generate clean variant name tag (prevents confusing tags like "latest-variant")
+- **Example**:
+  ```yaml
+  tags:
+    strategy: variant_only
+  ```
+
+When `variant_only` is used:
+- Default variant gets: `latest`, `{version}`, `{commit}`
+- Named variants get: `{variant}`, `{commit}`, and custom patterns
+- Prevents tags like `latest-act-24.04` or `{version}-act-24.04`
+- Each variant tag acts as "latest" for that specific variant
+
+##### Custom Tag Patterns
+
+Define custom tag patterns using template variables.
+
+- **Type**: Array of strings
+- **Required**: No
+- **Default**: No custom patterns
+- **Template Variables**:
+  - `{variant}` - Variant name (e.g., `alpine`, `act-24.04`)
+  - `{version}` - Detected version (e.g., `1.2.3`)
+  - `{date}` - Build date in YYYYMMDD format (e.g., `20251116`)
+  - `{arch}` - Architecture (e.g., `amd64`, `arm64`) - only for arch-specific tags
+- **Example**:
+  ```yaml
+  tags:
+    patterns:
+      - "{variant}-{date}"              # act-24.04-20251116
+      - "{variant}-{version}"           # act-24.04-1.2.3
+      - "{version}-{variant}-{date}"    # 1.2.3-alpine-20251116
+  ```
+
+Custom patterns are useful for:
+- **Date-based rollback**: Pin to specific build date (`act-24.04-20251116`)
+- **Hybrid tags**: Combine version and variant (`1.2.3-alpine`)
+- **Tracking versions**: Track upstream version changes per variant
+
+Pattern resolution:
+- Variables are replaced with actual values during manifest creation
+- If a required variable is missing, the pattern is skipped
+- Patterns are added in addition to standard tags (commit, branch)
+
+##### Complete Tags Example
+
+```yaml
+name: catthehacker-ubuntu-dind
+variants: [act-22.04, act-24.04]
+
+tags:
+  strategy: variant_only
+  patterns:
+    - "{variant}-{date}"
+
+# This generates tags:
+# - ghcr.io/user/repo/image:{commit}            (all variants)
+# - ghcr.io/user/repo/image:{branch}            (all variants)
+# - ghcr.io/user/repo/image:act-24.04           (variant tag)
+# - ghcr.io/user/repo/image:act-24.04-20251116  (custom pattern)
+# - ghcr.io/user/repo/image:act-22.04           (variant tag)
+# - ghcr.io/user/repo/image:act-22.04-20251116  (custom pattern)
+```
+
 #### `registries`
 
 Push to multiple registries. GHCR is always primary.

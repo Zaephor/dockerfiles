@@ -298,13 +298,48 @@ create_all_manifests() {
           tag_strategy=$(yq eval '.tags.strategy // ""' "$version_file" 2>/dev/null || echo "")
         fi
 
+        # Read custom tag patterns from metadata.yaml if present
+        local custom_patterns=()
+        if [ -f "$version_file" ]; then
+          # Read patterns array from YAML
+          local patterns_count
+          patterns_count=$(yq eval '.tags.patterns | length' "$version_file" 2>/dev/null || echo "0")
+          if [ "$patterns_count" != "0" ] && [ "$patterns_count" != "null" ]; then
+            for ((i=0; i<patterns_count; i++)); do
+              local pattern
+              pattern=$(yq eval ".tags.patterns[$i]" "$version_file" 2>/dev/null || echo "")
+              if [ -n "$pattern" ]; then
+                custom_patterns+=("$pattern")
+              fi
+            done
+          fi
+        fi
+
+        # Generate current date for date-based tags (YYYYMMDD format)
+        local build_date
+        build_date=$(date -u +%Y%m%d)
+
+        # Build tag generation arguments
+        local tag_args=(
+          --image "$image_name"
+          --version "$version"
+          --variant "$variant_name"
+          --registry "ghcr.io/${ghcr_repo}"
+          --date "$build_date"
+        )
+
+        if [ -n "$tag_strategy" ]; then
+          tag_args+=(--tag-strategy "$tag_strategy")
+        fi
+
+        # Add custom patterns if any
+        for pattern in "${custom_patterns[@]}"; do
+          tag_args+=(--custom-pattern "$pattern")
+        done
+
         # Generate variant-specific tags
         local variant_tags
-        if [ -n "$tag_strategy" ]; then
-          variant_tags=$(build_variant_tags --image "$image_name" --version "$version" --variant "$variant_name" --registry "ghcr.io/${ghcr_repo}" --tag-strategy "$tag_strategy")
-        else
-          variant_tags=$(build_variant_tags --image "$image_name" --version "$version" --variant "$variant_name" --registry "ghcr.io/${ghcr_repo}")
-        fi
+        variant_tags=$(build_variant_tags "${tag_args[@]}")
 
         if [ -n "$variant_tags" ]; then
           echo "Generated tags for ${variant_name}:"

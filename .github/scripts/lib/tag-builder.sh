@@ -41,6 +41,8 @@ source "$(dirname "${BASH_SOURCE[0]}")/logging.sh"
 #   --arch <arch>         : Architecture (optional, amd64/arm64; if provided, includes arch-specific tags)
 #   --registry <reg>      : Registry prefix (optional, defaults to ghcr.io/username/repo)
 #   --tag-strategy <str>  : Tag strategy (optional, e.g., variant_only; controls which tags are generated)
+#   --date <yyyymmdd>     : Build date (optional, format: YYYYMMDD, e.g., 20251116)
+#   --custom-pattern <p>  : Custom tag pattern with template variables (optional, can be repeated)
 #
 # Output (stdout):
 #   Newline-separated list of tags
@@ -57,6 +59,8 @@ build_variant_tags() {
     local arch=""
     local registry_prefix=""
     local tag_strategy=""
+    local build_date=""
+    local custom_patterns=()
 
     # Parse arguments
     while [[ $# -gt 0 ]]; do
@@ -83,6 +87,14 @@ build_variant_tags() {
                 ;;
             --tag-strategy)
                 tag_strategy="$2"
+                shift 2
+                ;;
+            --date)
+                build_date="$2"
+                shift 2
+                ;;
+            --custom-pattern)
+                custom_patterns+=("$2")
                 shift 2
                 ;;
             *)
@@ -135,6 +147,34 @@ build_variant_tags() {
     fi
 
     local tags=()
+
+    # Helper function to expand template variables in a pattern
+    expand_tag_pattern() {
+        local pattern="$1"
+        local result="$pattern"
+
+        # Replace template variables
+        result="${result//\{variant\}/$variant}"
+        result="${result//\{version\}/$version}"
+        result="${result//\{date\}/$build_date}"
+        result="${result//\{arch\}/$arch}"
+
+        echo "$result"
+    }
+
+    # Process custom tag patterns if provided
+    if [[ ${#custom_patterns[@]} -gt 0 ]]; then
+        for pattern in "${custom_patterns[@]}"; do
+            local expanded_tag
+            expanded_tag=$(expand_tag_pattern "$pattern")
+
+            # Only add tag if all required variables were provided
+            # (pattern won't have empty placeholders)
+            if [[ ! "$expanded_tag" =~ \{\} ]] && [[ -n "$expanded_tag" ]]; then
+                tags+=("${registry_prefix}/${image_name}:${expanded_tag}")
+            fi
+        done
+    fi
 
     # Architecture-specific tags (if arch provided)
     if [[ -n "$arch" ]]; then

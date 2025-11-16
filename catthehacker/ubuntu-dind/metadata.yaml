@@ -28,6 +28,12 @@ tags:
   # Each variant tag (act-24.04, act-22.04) acts as the "latest" for that variant
   strategy: variant_only
 
+  # Custom tag patterns with template variables
+  # Supported variables: {variant}, {version}, {date}, {arch}
+  # Date format: YYYYMMDD (e.g., 20251116)
+  patterns:
+    - "{variant}-{date}"  # Date-based tags (e.g., act-24.04-20251116)
+
 labels:
   org.opencontainers.image.title: "catthehacker/ubuntu-dind"
   org.opencontainers.image.description: "Docker-in-Docker enabled catthehacker/ubuntu images for GitHub Actions"
