@@ -564,7 +564,7 @@ generate_matrix() {
     echo "$matrix_json"
 
     # Set GitHub Actions output if in CI environment
-    if [[ -n "$GITHUB_OUTPUT" ]]; then
+    if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
         if ! matrix_set_output "matrix" "$matrix_json"; then
             error "Failed to set GitHub Actions output"
             return 1

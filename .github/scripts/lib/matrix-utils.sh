@@ -154,10 +154,11 @@ matrix_log_decision() {
     fi
 
     # Include variant in output if provided
+    # Output to stderr to avoid mixing with JSON on stdout
     if [[ -n "$variant" && "$variant" != "default" ]]; then
-        echo "Matrix Decision: [$decision] Image: $image_name, Variant: $variant, Version: ${version:-unknown}, Reason: $reason"
+        echo "Matrix Decision: [$decision] Image: $image_name, Variant: $variant, Version: ${version:-unknown}, Reason: $reason" >&2
     else
-        echo "Matrix Decision: [$decision] Image: $image_name, Version: ${version:-unknown}, Reason: $reason"
+        echo "Matrix Decision: [$decision] Image: $image_name, Version: ${version:-unknown}, Reason: $reason" >&2
     fi
     return 0
 }
@@ -175,7 +176,7 @@ matrix_log_decision() {
 #   Exit 0: Always
 matrix_log_start() {
     local image_count="$1"
-    echo "Matrix Generation: Starting - Processing $image_count images"
+    echo "Matrix Generation: Starting - Processing $image_count images" >&2
     return 0
 }
 
@@ -195,7 +196,7 @@ matrix_log_complete() {
     local included_count="$1"
     local total_count="$2"
 
-    echo "Matrix Generation: Complete - $included_count/$total_count images included for building"
+    echo "Matrix Generation: Complete - $included_count/$total_count images included for building" >&2
     return 0
 }
 
@@ -215,8 +216,8 @@ matrix_log_error() {
     local error_message="$1"
     local fallback_action="$2"
 
-    echo "ERROR: Matrix Generation Failed: $error_message"
-    echo "Fallback Action: $fallback_action"
+    echo "ERROR: Matrix Generation Failed: $error_message" >&2
+    echo "Fallback Action: $fallback_action" >&2
     return 0
 }
 
