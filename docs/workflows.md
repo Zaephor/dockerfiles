@@ -465,8 +465,8 @@ jq -r 'select(.rebuild_metadata) | .version + " rebuilt: " + .rebuild_metadata.r
   hello-world/history.jsonl
 
 # Pull and test the rebuilt image
-docker pull ghcr.io/your-org/hello-world:v1.0.0
-docker run ghcr.io/your-org/hello-world:v1.0.0
+docker pull ghcr.io/zaephor/dockerfiles/hello-world:v1.0.0
+docker run ghcr.io/zaephor/dockerfiles/hello-world:v1.0.0
 ```
 
 #### Batch Rebuild Multiple Versions

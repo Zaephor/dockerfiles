@@ -44,7 +44,7 @@ docker run -d \
   -e MIC_DEVICE="plughw:1,0" \
   -e SND_DEVICE="plughw:1,0" \
   -p 10700:10700 \
-  ghcr.io/your-org/wyoming-satellite:latest
+  ghcr.io/zaephor/dockerfiles/wyoming-satellite:dev
 ```
 
 ### With Wake Word Service
@@ -64,7 +64,7 @@ docker run -d \
   -p 10700:10700 \
   -v ./config:/config:ro \
   -v ./data:/data \
-  ghcr.io/your-org/wyoming-satellite:latest
+  ghcr.io/zaephor/dockerfiles/wyoming-satellite:dev
 ```
 
 ### Custom Audio Commands
@@ -78,7 +78,7 @@ docker run -d \
   -e MIC_COMMAND="arecord -D plughw:2,0 -r 16000 -c 1 -f S16_LE -t raw" \
   -e SND_COMMAND="aplay -D plughw:2,0 -r 22050 -c 1 -f S16_LE -t raw" \
   -p 10700:10700 \
-  ghcr.io/your-org/wyoming-satellite:latest
+  ghcr.io/zaephor/dockerfiles/wyoming-satellite:dev
 ```
 
 ---
@@ -92,7 +92,7 @@ version: "3.8"
 
 services:
   wyoming-satellite:
-    image: ghcr.io/your-org/wyoming-satellite:latest
+    image: ghcr.io/zaephor/dockerfiles/wyoming-satellite:dev
     container_name: wyoming-satellite
     restart: unless-stopped
     devices:
@@ -118,7 +118,7 @@ version: "3.8"
 
 services:
   wyoming-satellite:
-    image: ghcr.io/your-org/wyoming-satellite:latest
+    image: ghcr.io/zaephor/dockerfiles/wyoming-satellite:dev
     container_name: wyoming-satellite
     restart: unless-stopped
     depends_on:
@@ -168,7 +168,7 @@ Description=Wyoming Satellite Voice Assistant
 After=network-online.target
 
 [Container]
-Image=ghcr.io/your-org/wyoming-satellite:latest
+Image=ghcr.io/zaephor/dockerfiles/wyoming-satellite:dev
 ContainerName=wyoming-satellite
 AutoUpdate=registry
 
@@ -230,7 +230,7 @@ After=network-online.target openwakeword.service
 Requires=openwakeword.service
 
 [Container]
-Image=ghcr.io/your-org/wyoming-satellite:latest
+Image=ghcr.io/zaephor/dockerfiles/wyoming-satellite:dev
 ContainerName=wyoming-satellite
 AutoUpdate=registry
 
