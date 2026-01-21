@@ -566,7 +566,15 @@ run_verification() {
   local metadata_file="$3"
   local platform="${4:-}"
 
-  local full_image="$image_name:$image_tag"
+  # Build full image reference
+  # If image_name already contains a digest (@sha256:), use it as-is
+  # Docker references must be EITHER image:tag OR image@sha256:digest, NOT both
+  local full_image
+  if [[ "$image_name" == *"@sha256:"* ]]; then
+    full_image="$image_name"
+  else
+    full_image="$image_name:$image_tag"
+  fi
 
   echo "[VERIFY] ════════════════════════════════════════════════════════════"
   echo "[VERIFY] Starting verification for: $full_image"
