@@ -184,7 +184,7 @@ run_in_container() {
   local timeout="${3:-$DEFAULT_TIMEOUT}"
   local env_vars="${4:-{}}"
 
-  local docker_args=("--rm")
+  local docker_args=("--rm" "--entrypoint" "")
 
   # Add environment variables
   while IFS= read -r env_line; do
@@ -193,7 +193,7 @@ run_in_container() {
     fi
   done < <(echo "$env_vars" | jq -r 'to_entries | .[] | "\(.key)=\(.value)"' 2>/dev/null || true)
 
-  # Run container with timeout
+  # Run container with timeout, bypassing entrypoint to run verification commands directly
   timeout "$timeout" docker run "${docker_args[@]}" "$image" sh -c "$command" 2>&1
 }
 
