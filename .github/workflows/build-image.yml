@@ -348,9 +348,9 @@ jobs:
 
           # Run verification using metadata.yaml config
           # The verify script will check if verification is configured
+          # Note: --image-tag is optional; we use digest reference for precision
           if .github/scripts/verify-image.sh \
             --image-name "${IMAGE_REF}" \
-            --image-tag "${{ matrix.config.image.version }}" \
             --config "${{ matrix.config.image.name }}/metadata.yaml"; then
             log_structured "${{ matrix.config.image.name }}" "${{ matrix.config.arch }}" "VERIFY_SUCCESS" "Verification passed"
           else

@@ -24,7 +24,7 @@ source "${SCRIPT_DIR}/lib/verification.sh"
 
 # Default values
 IMAGE_NAME=""
-IMAGE_TAG=""
+IMAGE_TAG="latest"  # Default to "latest" if not provided (optional for digest refs)
 CONFIG_FILE=""
 PLATFORM=""
 OUTPUT_JSON=false
@@ -38,7 +38,7 @@ Verify a built container image works correctly.
 
 Options:
   -n, --image-name NAME    Name of the image (required)
-  -t, --image-tag TAG      Tag of the image (required)
+  -t, --image-tag TAG      Tag of the image (default: latest)
   -c, --config FILE        Path to metadata.yaml (required)
   -p, --platform PLATFORM  Platform to verify (e.g., linux/amd64)
   --json                   Output result as JSON
@@ -108,9 +108,7 @@ validate_args() {
     errors+=("--image-name is required")
   fi
 
-  if [[ -z "$IMAGE_TAG" ]]; then
-    errors+=("--image-tag is required")
-  fi
+  # IMAGE_TAG is optional - defaults to "latest" for digest references
 
   if [[ -z "$CONFIG_FILE" ]]; then
     errors+=("--config is required")
