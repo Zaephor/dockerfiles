@@ -334,9 +334,33 @@ jobs:
             --image-name "${{ matrix.config.image.name }}" \
             --build-metadata "/tmp/build-metadata.json"
 
+      - name: Verify container image
+        id: verify
+        if: steps.build.outcome == 'success' && steps.push-with-retry.outcome == 'success'
+        run: |
+          source .github/scripts/lib/logging.sh
+
+          # Get the image reference with digest
+          DIGEST=$(jq -r '."containerimage.digest"' /tmp/build-metadata.json)
+          IMAGE_REF="${{ steps.meta.outputs.image_repo }}@${DIGEST}"
+
+          log_structured "${{ matrix.config.image.name }}" "${{ matrix.config.arch }}" "VERIFY_START" "Running verification for ${IMAGE_REF}"
+
+          # Run verification using metadata.yaml config
+          # The verify script will check if verification is configured
+          if .github/scripts/verify-image.sh \
+            --image-name "${IMAGE_REF}" \
+            --image-tag "${{ matrix.config.image.version }}" \
+            --config "${{ matrix.config.image.name }}/metadata.yaml"; then
+            log_structured "${{ matrix.config.image.name }}" "${{ matrix.config.arch }}" "VERIFY_SUCCESS" "Verification passed"
+          else
+            log_error "${{ matrix.config.image.name }}" "${{ matrix.config.arch }}" "VERIFY_FAILED" "Verification failed - image will not be included in manifest"
+            exit 1
+          fi
+
       - name: Export digest
         id: push
-        if: steps.build.outcome == 'success' && steps.push-with-retry.outcome == 'success'
+        if: steps.build.outcome == 'success' && steps.push-with-retry.outcome == 'success' && steps.verify.outcome == 'success'
         run: |
           # Source logging library
           source .github/scripts/lib/logging.sh

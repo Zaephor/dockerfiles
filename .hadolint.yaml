@@ -24,3 +24,7 @@ ignored:
   # False positive - we intentionally use single quotes to write literal
   # shell expressions that should expand at runtime, not build time
   - SC2016
+
+  # DL3059: Multiple consecutive RUN instructions
+  # Intentionally separate RUN commands for clarity and cache optimization
+  - DL3059

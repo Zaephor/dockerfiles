@@ -1,0 +1,25 @@
+name: wyoming-satellite
+description: Remote voice satellite using Wyoming protocol for Home Assistant
+
+# Track latest commit on master branch
+version_source:
+  type: git_commit
+  repo: rhasspy/wyoming-satellite
+  branch: master
+
+architectures: [amd64, arm64]
+
+registries:
+  - ghcr.io
+
+labels:
+  org.opencontainers.image.title: "Wyoming Satellite"
+  org.opencontainers.image.description: "Remote voice satellite using Wyoming protocol"
+  org.opencontainers.image.url: "https://github.com/rhasspy/wyoming-satellite"
+  org.opencontainers.image.licenses: "MIT"
+
+# Post-build verification to ensure the image works correctly
+verification:
+  mode: python-cli
+  module: wyoming_satellite
+  help_command: python3 -m wyoming_satellite --help

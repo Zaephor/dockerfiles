@@ -1,0 +1,33 @@
+name: linux-voice-assistant
+description: Voice satellite using ESPHome protocol for Home Assistant
+
+# Track latest commit on main branch
+# Note: Upstream has occasional issues; builds may fail temporarily
+version_source:
+  type: git_commit
+  repo: OHF-Voice/linux-voice-assistant
+  branch: main
+
+architectures: [amd64, arm64]
+
+registries:
+  - ghcr.io
+
+labels:
+  org.opencontainers.image.title: "Linux Voice Assistant"
+  org.opencontainers.image.description: "Voice satellite using ESPHome protocol"
+  org.opencontainers.image.url: "https://github.com/OHF-Voice/linux-voice-assistant"
+  org.opencontainers.image.licenses: "Apache-2.0"
+
+# Post-build verification to ensure the image works correctly
+# Uses command mode because soundcard library requires PulseAudio and sys.argv manipulation
+verification:
+  mode: command
+  commands:
+    - name: Start PulseAudio and verify module import
+      run: |
+        (pulseaudio --start --exit-idle-time=-1 || true) && \
+        sleep 1 && \
+        python3 -c "import sys; sys.argv = ['test', 'dummy']; from linux_voice_assistant import __main__" && \
+        python3 -m linux_voice_assistant --help > /dev/null && \
+        (pulseaudio --kill 2>/dev/null || true)
