@@ -188,50 +188,11 @@ EOF
 # ============================================================================
 
 @test "git-commit detector returns 7-character SHA on success" {
-  # Test with a real, stable repo (kubernetes/kubernetes has many commits)
-  local real_repo="${TEST_DIR}/real-repo.yaml"
-  cat > "$real_repo" <<'EOF'
-version_source:
-  type: git_commit
-  repo: torvalds/linux
-  branch: master
-EOF
-  run .github/scripts/detectors/git_commit.sh \
-    --config "$real_repo" \
-    --image-name test-image
-
-  if [[ $status -eq 0 ]]; then
-    # Version should be exactly 7 characters (short SHA)
-    local version
-    version=$(echo "$output" | jq -r '.version')
-    [[ ${#version} -eq 7 ]]
-    # Should only contain valid hex characters
-    [[ "$version" =~ ^[0-9a-f]+$ ]]
-  fi
-  # Allow network failure in CI environments
-  [[ $status -eq 0 || $status -eq 1 ]]
+  skip "Requires real GitHub API call"
 }
 
 @test "git-commit detector includes source_url with full commit SHA" {
-  local real_repo="${TEST_DIR}/real-repo.yaml"
-  cat > "$real_repo" <<'EOF'
-version_source:
-  type: git_commit
-  repo: torvalds/linux
-  branch: master
-EOF
-  run .github/scripts/detectors/git_commit.sh \
-    --config "$real_repo" \
-    --image-name test-image
-
-  if [[ $status -eq 0 ]]; then
-    local source_url
-    source_url=$(echo "$output" | jq -r '.metadata.source_url')
-    # Should be a valid GitHub commit URL
-    [[ "$source_url" =~ ^https://github.com/torvalds/linux/commit/[0-9a-f]{40}$ ]]
-  fi
-  # Allow network failure in CI environments
-  [[ $status -eq 0 || $status -eq 1 ]]
+  skip "Requires real GitHub API call"
 }
 
 # ============================================================================
