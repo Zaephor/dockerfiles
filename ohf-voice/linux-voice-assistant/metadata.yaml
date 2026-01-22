@@ -31,3 +31,56 @@ verification:
         python3 -c "import sys; sys.argv = ['test', 'dummy']; from linux_voice_assistant import __main__" && \
         python3 -m linux_voice_assistant --help > /dev/null && \
         (pulseaudio --kill 2>/dev/null || true)
+    - name: Verify satellite runs with virtual audio and client connection
+      run: |
+        # Start PulseAudio with virtual audio devices
+        pulseaudio --start --exit-idle-time=-1 || true
+        sleep 1
+
+        # Load virtual microphone (null source) and speaker (null sink)
+        pactl load-module module-null-sink sink_name=virtual_speaker sink_properties=device.description=VirtualSpeaker
+        pactl load-module module-null-source source_name=virtual_mic source_properties=device.description=VirtualMic
+
+        # Run satellite with virtual mic, capture output for error checking
+        echo "Starting satellite with virtual audio..."
+        timeout 15 python3 -m linux_voice_assistant \
+          --name "verify-test" \
+          --audio-input-device "virtual_mic" \
+          2>&1 | tee /tmp/lva-verify.log &
+        LVA_PID=$!
+
+        # Wait for server to start listening
+        echo "Waiting for server to start..."
+        for i in $(seq 1 10); do
+          if nc -z 127.0.0.1 6053 2>/dev/null; then
+            echo "Server listening on port 6053"
+            break
+          fi
+          sleep 1
+        done
+
+        # Connect to port 6053 to trigger audio processing code path
+        # The bug manifests when a client connects and audio handling starts
+        echo "Connecting to trigger audio processing..."
+        (echo ""; sleep 3) | nc 127.0.0.1 6053 &>/dev/null &
+        NC_PID=$!
+
+        # Wait for error to potentially manifest
+        sleep 5
+
+        # Cleanup
+        kill $NC_PID 2>/dev/null || true
+        kill $LVA_PID 2>/dev/null || true
+        wait $LVA_PID 2>/dev/null || true
+
+        # Check for Python errors in output
+        echo "Checking for runtime errors..."
+        if grep -qE "AttributeError|NameError|TypeError.*object has no attribute" /tmp/lva-verify.log; then
+          echo "ERROR: Runtime errors detected in satellite:"
+          grep -E "Error|Exception|Traceback|AttributeError|NameError|TypeError" /tmp/lva-verify.log
+          pulseaudio --kill 2>/dev/null || true
+          exit 1
+        fi
+
+        echo "Satellite verification passed - no runtime errors"
+        pulseaudio --kill 2>/dev/null || true
