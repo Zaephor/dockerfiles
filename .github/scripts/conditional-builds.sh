@@ -91,13 +91,10 @@ should_build_image() {
 git_files_changed() {
     local image_dir="$1"
 
-    # Get the relative path from repo root
-    local image_name
-    image_name=$(basename "$image_dir")
-
+    # image_dir is already the relative path from repo root (e.g., "ohf-voice/linux-voice-assistant")
     # Check for changes in this image's directory
     # Compare against HEAD~1 (parent commit)
-    if git diff --quiet HEAD~1 HEAD -- "$image_name/" 2>/dev/null; then
+    if git diff --quiet HEAD~1 HEAD -- "$image_dir/" 2>/dev/null; then
         # No changes
         return 1
     else

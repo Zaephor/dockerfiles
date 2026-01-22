@@ -1,4 +1,5 @@
 # Linux Voice Assistant - Voice satellite using ESPHome protocol
+# Rebuild trigger: PulseAudio module-detect for USB audio input detection
 # https://github.com/OHF-Voice/linux-voice-assistant
 #
 # Uses ESPHome voice assistant protocol for Home Assistant integration.
