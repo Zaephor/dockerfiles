@@ -381,19 +381,29 @@ process_image_variants() {
         local build_reason="unknown"
         local build_version="$detected_version"
 
+        # Use version_override if provided (takes precedence over detected version)
+        local effective_version="$detected_version"
+        if [[ -n "$version_override" ]]; then
+            effective_version="$version_override"
+            build_version="$version_override"
+        fi
+
         if [[ "$force_rebuild" == "true" ]]; then
             should_build="true"
             build_reason="force_rebuild"
             if [[ -n "$version_override" ]]; then
-                build_version="$version_override"
                 build_reason="force_rebuild_with_version_override"
             fi
         else
             # Call should_build_image with variant parameter
+            # Use effective_version (which may be overridden) for the build decision
             local build_decision
-            if build_decision=$(should_build_image "$image_name" "$REPO_ROOT" "$detected_version" "$variant_name" 2>/dev/null); then
+            if build_decision=$(should_build_image "$image_name" "$REPO_ROOT" "$effective_version" "$variant_name" 2>/dev/null); then
                 should_build=$(echo "$build_decision" | jq -r '.should_build // false' 2>/dev/null)
-                build_version=$(echo "$build_decision" | jq -r '.version // ""' 2>/dev/null)
+                # Keep version_override if set, otherwise use decision's version
+                if [[ -z "$version_override" ]]; then
+                    build_version=$(echo "$build_decision" | jq -r '.version // ""' 2>/dev/null)
+                fi
                 build_reason=$(echo "$build_decision" | jq -r '.reason // "unknown"' 2>/dev/null)
             else
                 # Build decision failed - include as safety fallback
