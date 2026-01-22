@@ -41,8 +41,15 @@ RUN mkdir -p /etc/pulse \
 
 WORKDIR /app
 
-# Clone repository at specific version (tag or branch)
-RUN git clone --depth 1 --branch "${VERSION}" https://github.com/OHF-Voice/linux-voice-assistant.git .
+# Clone repository at specific version (branch, tag, or commit SHA)
+# For commit SHAs, we need to fetch without depth limit then checkout
+# hadolint ignore=SC3010
+RUN if echo "${VERSION}" | grep -qE '^[0-9a-f]{7,40}$'; then \
+      git clone https://github.com/OHF-Voice/linux-voice-assistant.git . && \
+      git checkout "${VERSION}"; \
+    else \
+      git clone --depth 1 --branch "${VERSION}" https://github.com/OHF-Voice/linux-voice-assistant.git .; \
+    fi
 
 # Install Python package
 # hadolint ignore=DL3013
