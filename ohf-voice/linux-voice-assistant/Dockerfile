@@ -30,11 +30,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Configure PulseAudio to run without system mode and use ALSA
+# Configure PulseAudio to run without system mode and auto-detect ALSA devices
 RUN mkdir -p /etc/pulse \
     && echo "load-module module-native-protocol-unix" > /etc/pulse/default.pa \
-    && echo "load-module module-alsa-sink" >> /etc/pulse/default.pa \
-    && echo "load-module module-alsa-source" >> /etc/pulse/default.pa \
+    && echo "load-module module-detect" >> /etc/pulse/default.pa \
     && echo "load-module module-always-sink" >> /etc/pulse/default.pa \
     && echo "exit-idle-time = -1" > /etc/pulse/daemon.conf \
     && echo "flat-volumes = no" >> /etc/pulse/daemon.conf
