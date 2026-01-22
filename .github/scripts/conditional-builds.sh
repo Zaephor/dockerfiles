@@ -63,6 +63,11 @@ should_build_image() {
             should_build="true"
             reason="version_changed"
             log_decision "Image $image_name: Building (version changed: $last_version -> $version)"
+        # Handle empty last_version in history (unreliable record) - rebuild if we have a valid current version
+        elif [[ -z "$last_version" ]] && [[ -n "$version" ]]; then
+            should_build="true"
+            reason="version_changed"
+            log_decision "Image $image_name: Building (last recorded version empty, current: $version)"
         # Check if files changed (Dockerfile, metadata.yaml, or data/ directory)
         elif git_files_changed "$repo_root/$image_name" 2>/dev/null; then
             should_build="true"
