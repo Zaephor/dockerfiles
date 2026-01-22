@@ -33,43 +33,61 @@ verification:
         (pulseaudio --kill 2>/dev/null || true)
     - name: Verify satellite runs with virtual audio and client connection
       run: |
-        # Start PulseAudio with virtual audio devices
+        # Start PulseAudio with virtual audio device
+        # Note: module-null-source doesn't work reliably, so we use null-sink's monitor
         pulseaudio --start --exit-idle-time=-1 || true
         sleep 1
 
-        # Load virtual microphone (null source) and speaker (null sink)
-        pactl load-module module-null-sink sink_name=virtual_speaker sink_properties=device.description=VirtualSpeaker
-        pactl load-module module-null-source source_name=virtual_mic source_properties=device.description=VirtualMic
+        # Load null sink - its .monitor acts as a virtual microphone input
+        pactl load-module module-null-sink sink_name=virtual_audio sink_properties=device.description=VirtualAudio
+        pactl set-default-source virtual_audio.monitor
+        sleep 1
 
-        # Run satellite with virtual mic, capture output for error checking
+        # Run satellite (uses default source), capture output for error checking
         echo "Starting satellite with virtual audio..."
-        timeout 15 python3 -m linux_voice_assistant \
+        timeout 25 python3 -m linux_voice_assistant \
           --name "verify-test" \
-          --audio-input-device "virtual_mic" \
           2>&1 | tee /tmp/lva-verify.log &
         LVA_PID=$!
 
-        # Wait for server to start listening
+        # Wait for server to start listening (using Python since nc not installed)
         echo "Waiting for server to start..."
-        for i in $(seq 1 10); do
-          if nc -z 127.0.0.1 6053 2>/dev/null; then
-            echo "Server listening on port 6053"
-            break
-          fi
-          sleep 1
-        done
+        python3 << 'WAIT_SCRIPT'
+        import socket, time
+        for i in range(15):
+            try:
+                s = socket.socket()
+                s.connect(('127.0.0.1', 6053))
+                s.close()
+                print(f'Server ready after {i+1}s')
+                break
+            except:
+                time.sleep(1)
+        else:
+            print('Server not ready after 15s')
+            exit(1)
+        WAIT_SCRIPT
 
         # Connect to port 6053 to trigger audio processing code path
         # The bug manifests when a client connects and audio handling starts
         echo "Connecting to trigger audio processing..."
-        (echo ""; sleep 3) | nc 127.0.0.1 6053 &>/dev/null &
-        NC_PID=$!
+        python3 << 'CONNECT_SCRIPT' &
+        import socket, time
+        try:
+            s = socket.socket()
+            s.settimeout(10)
+            s.connect(('127.0.0.1', 6053))
+            s.send(b'\x00' * 100)
+            time.sleep(5)
+            s.close()
+        except Exception as e:
+            print(f'Connection: {e}')
+        CONNECT_SCRIPT
 
         # Wait for error to potentially manifest
-        sleep 5
+        sleep 8
 
         # Cleanup
-        kill $NC_PID 2>/dev/null || true
         kill $LVA_PID 2>/dev/null || true
         wait $LVA_PID 2>/dev/null || true
 
@@ -77,7 +95,7 @@ verification:
         echo "Checking for runtime errors..."
         if grep -qE "AttributeError|NameError|TypeError.*object has no attribute" /tmp/lva-verify.log; then
           echo "ERROR: Runtime errors detected in satellite:"
-          grep -E "Error|Exception|Traceback|AttributeError|NameError|TypeError" /tmp/lva-verify.log
+          grep -E "Error|Exception|Traceback|AttributeError|NameError|TypeError" /tmp/lva-verify.log | head -20
           pulseaudio --kill 2>/dev/null || true
           exit 1
         fi
