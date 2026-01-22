@@ -27,6 +27,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Source logging library
 source "${SCRIPT_DIR}/lib/logging.sh"
 
+# Source image discovery library (supports nested directories)
+source "${SCRIPT_DIR}/lib/image-discovery.sh"
+
 # Global variables
 IMAGE_FILTER=""
 SKIP_IMAGES=""
@@ -67,17 +70,11 @@ parse_args() {
 
 #######################################
 # Get list of available image directories
+# Uses discover_image_directories from lib/image-discovery.sh
+# to support nested directories (e.g., ohf-voice/linux-voice-assistant)
 #######################################
 get_image_dirs() {
-  find "$REPO_ROOT" -maxdepth 1 -type d -name '[^.].*' \
-    ! -name '.github' \
-    ! -name 'docs' \
-    ! -name 'research' \
-    ! -name 'specs' \
-    ! -name 'tests' \
-    | sed 's|^\./||' \
-    | sed "s|^${REPO_ROOT}/||" \
-    | sort
+  discover_image_directories "$REPO_ROOT"
 }
 
 #######################################
