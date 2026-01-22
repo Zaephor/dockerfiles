@@ -322,7 +322,8 @@ jobs:
               --image-repo "${{ steps.meta.outputs.image_repo }}" \
               --cache-tag "${{ steps.meta.outputs.cache_tag }}" \
               --source-url "${{ github.server_url }}/${{ github.repository }}" \
-              --revision "${{ github.sha }}"
+              --revision "${{ github.sha }}" \
+              --version "${{ matrix.config.image.version }}"
 
       - name: Retry push if registry temporarily unavailable
         id: push-with-retry

@@ -36,6 +36,7 @@ IMAGE_REPO=""
 CACHE_TAG=""
 SOURCE_URL=""
 REVISION=""
+VERSION=""
 
 #######################################
 # Print error message and exit
@@ -92,6 +93,10 @@ parse_args() {
         REVISION="$2"
         shift 2
         ;;
+      --version)
+        VERSION="$2"
+        shift 2
+        ;;
       *)
         error "Unknown option: $1" 1
         ;;
@@ -130,6 +135,12 @@ build_image() {
     --label "org.opencontainers.image.source=${SOURCE_URL}"
     --label "org.opencontainers.image.revision=${REVISION}"
   )
+
+  # Add VERSION build arg if provided (used by Dockerfiles that clone specific versions)
+  if [[ -n "$VERSION" ]]; then
+    buildx_args+=(--build-arg "VERSION=${VERSION}")
+    echo "Using VERSION build arg: ${VERSION}"
+  fi
 
   # Add final args
   buildx_args+=(
