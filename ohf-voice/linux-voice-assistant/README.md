@@ -29,11 +29,11 @@ aplay -L    # Playback devices (speakers)
 
 # Inside container (requires audio device mounted)
 docker run --rm --device /dev/snd \
-  ghcr.io/zaephor/dockerfiles/linux-voice-assistant:dev \
+  ghcr.io/zaephor/dockerfiles/ohf-voice/linux-voice-assistant:dev \
   --list-input-devices
 
 docker run --rm --device /dev/snd \
-  ghcr.io/zaephor/dockerfiles/linux-voice-assistant:dev \
+  ghcr.io/zaephor/dockerfiles/ohf-voice/linux-voice-assistant:dev \
   --list-output-devices
 ```
 
@@ -50,7 +50,7 @@ docker run -d \
   --group-add audio \
   -e DEVICE_NAME="Living Room" \
   -p 6053:6053 \
-  ghcr.io/zaephor/dockerfiles/linux-voice-assistant:dev
+  ghcr.io/zaephor/dockerfiles/ohf-voice/linux-voice-assistant:dev
 ```
 
 ### With Specific Audio Devices
@@ -67,7 +67,7 @@ docker run -d \
   -p 6053:6053 \
   -v ./config:/config:ro \
   -v ./data:/data \
-  ghcr.io/zaephor/dockerfiles/linux-voice-assistant:dev
+  ghcr.io/zaephor/dockerfiles/ohf-voice/linux-voice-assistant:dev
 ```
 
 ### With External PulseAudio (Host)
@@ -79,7 +79,7 @@ docker run -d \
   -e PULSE_SERVER=unix:/run/user/1000/pulse/native \
   -e DEVICE_NAME="Office" \
   -p 6053:6053 \
-  ghcr.io/zaephor/dockerfiles/linux-voice-assistant:dev
+  ghcr.io/zaephor/dockerfiles/ohf-voice/linux-voice-assistant:dev
 ```
 
 ### With Custom Wake Word Models
@@ -95,7 +95,7 @@ docker run -d \
   -p 6053:6053 \
   -v ./wakewords:/config/wakewords:ro \
   -v ./data:/data \
-  ghcr.io/zaephor/dockerfiles/linux-voice-assistant:dev
+  ghcr.io/zaephor/dockerfiles/ohf-voice/linux-voice-assistant:dev
 ```
 
 ---
@@ -109,7 +109,7 @@ version: "3.8"
 
 services:
   linux-voice-assistant:
-    image: ghcr.io/zaephor/dockerfiles/linux-voice-assistant:dev
+    image: ghcr.io/zaephor/dockerfiles/ohf-voice/linux-voice-assistant:dev
     container_name: linux-voice-assistant
     restart: unless-stopped
     devices:
@@ -134,7 +134,7 @@ version: "3.8"
 
 services:
   linux-voice-assistant:
-    image: ghcr.io/zaephor/dockerfiles/linux-voice-assistant:dev
+    image: ghcr.io/zaephor/dockerfiles/ohf-voice/linux-voice-assistant:dev
     container_name: linux-voice-assistant
     restart: unless-stopped
     ports:
@@ -157,7 +157,7 @@ version: "3.8"
 
 services:
   linux-voice-assistant:
-    image: ghcr.io/zaephor/dockerfiles/linux-voice-assistant:dev
+    image: ghcr.io/zaephor/dockerfiles/ohf-voice/linux-voice-assistant:dev
     container_name: linux-voice-assistant
     restart: unless-stopped
     devices:
@@ -197,13 +197,13 @@ Description=Linux Voice Assistant
 After=network-online.target sound.target
 
 [Container]
-Image=ghcr.io/zaephor/dockerfiles/linux-voice-assistant:dev
+Image=ghcr.io/zaephor/dockerfiles/ohf-voice/linux-voice-assistant:dev
 ContainerName=linux-voice-assistant
 AutoUpdate=registry
 
 # Audio device access
 AddDevice=/dev/snd:/dev/snd
-Group=audio
+AddGroup=audio
 
 # Network
 PublishPort=6053:6053
@@ -233,7 +233,7 @@ Description=Linux Voice Assistant
 After=network-online.target pulseaudio.service
 
 [Container]
-Image=ghcr.io/zaephor/dockerfiles/linux-voice-assistant:dev
+Image=ghcr.io/zaephor/dockerfiles/ohf-voice/linux-voice-assistant:dev
 ContainerName=linux-voice-assistant
 AutoUpdate=registry
 
@@ -267,12 +267,12 @@ Description=Linux Voice Assistant
 After=network-online.target sound.target
 
 [Container]
-Image=ghcr.io/zaephor/dockerfiles/linux-voice-assistant:dev
+Image=ghcr.io/zaephor/dockerfiles/ohf-voice/linux-voice-assistant:dev
 ContainerName=linux-voice-assistant
 AutoUpdate=registry
 
 AddDevice=/dev/snd:/dev/snd
-Group=audio
+AddGroup=audio
 
 PublishPort=6053:6053
 
@@ -404,7 +404,7 @@ docker run --device /dev/snd --group-add audio ...
 ```bash
 # List available devices
 docker run --rm --device /dev/snd \
-  ghcr.io/zaephor/dockerfiles/linux-voice-assistant:dev \
+  ghcr.io/zaephor/dockerfiles/ohf-voice/linux-voice-assistant:dev \
   --list-input-devices
 
 # Check PulseAudio inside container
@@ -416,7 +416,7 @@ docker exec linux-voice-assistant pactl info
 ```bash
 # List output devices
 docker run --rm --device /dev/snd \
-  ghcr.io/zaephor/dockerfiles/linux-voice-assistant:dev \
+  ghcr.io/zaephor/dockerfiles/ohf-voice/linux-voice-assistant:dev \
   --list-output-devices
 ```
 
