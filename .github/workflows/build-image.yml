@@ -549,7 +549,7 @@ jobs:
           fi
 
       - name: Update build history with performance metrics
-        if: always()
+        if: steps.verify.outcome == 'success'
         run: |
           # Get digest if build succeeded
           BUILD_DIGEST=""
@@ -580,7 +580,7 @@ jobs:
             --image-size "${{ steps.image-size.outputs.image_size }}"
 
       - name: Prepare history artifact
-        if: always()
+        if: steps.verify.outcome == 'success'
         run: |
           # Create a temp directory with the image path metadata
           mkdir -p /tmp/history-upload
@@ -603,7 +603,7 @@ jobs:
           fi
 
       - name: Upload history artifact
-        if: always()
+        if: steps.verify.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: history-${{ steps.artifact-name.outputs.escaped }}-${{ matrix.config.image.variant }}-${{ matrix.config.arch }}
