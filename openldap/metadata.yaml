@@ -1,0 +1,37 @@
+name: openldap
+description: Minimal OpenLDAP (slapd 2.6) on Debian Trixie, configured entirely via cn=config over ldapi
+
+# Track the slapd version actually shipped in the built image (Debian Trixie's
+# package). Re-detects/retags when the distro updates slapd.
+version_source: binary_version
+source:
+  binary_path: /usr/sbin/slapd
+  version_command: -VV
+  version_regex: slapd (\d+\.\d+\.\d+)
+
+architectures: [amd64, arm64]
+
+registries:
+  - ghcr.io
+
+labels:
+  org.opencontainers.image.title: OpenLDAP
+  org.opencontainers.image.description: Minimal slapd 2.6 on Debian Trixie; all config applied via cn=config over ldapi
+  org.opencontainers.image.licenses: OLDAP-2.8
+
+# Post-build smoke test: the binary is the expected major.minor, and the
+# first-run bootstrap yields a slapd that answers ldapi with root via EXTERNAL.
+verification:
+  mode: command
+  commands:
+    - name: slapd 2.6 present
+      run: /usr/sbin/slapd -VV 2>&1 | grep -q "slapd 2.6"
+    - name: bootstrap cn=config + EXTERNAL root works
+      run: |
+        /usr/local/bin/entrypoint.sh &
+        rc=1
+        for _ in $(seq 1 15); do
+          if ldapwhoami -Y EXTERNAL -H ldapi:/// 2>/dev/null | grep -q peercred; then rc=0; break; fi
+          sleep 1
+        done
+        exit "$rc"
