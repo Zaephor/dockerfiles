@@ -4,7 +4,7 @@ Docker-in-Docker (DinD) enabled versions of the popular [catthehacker/ubuntu](ht
 
 ## What is This?
 
-These images extend the `ghcr.io/catthehacker/ubuntu` base images by adding Docker Engine, allowing you to run Docker commands and build Docker images inside GitHub Actions workflows or other containerized environments.
+These images extend the `ghcr.io/catthehacker/ubuntu` base images with Docker-in-Docker support — daemon auto-start, user-mode handling, and environment-driven daemon configuration — so you can run Docker commands and build Docker images inside GitHub Actions workflows or other containerized environments. The base images already ship the Docker engine via the `moby-*` packages; these images make the daemon start and behave correctly in DinD scenarios.
 
 ## Variants
 
@@ -72,7 +72,7 @@ This multi-layered approach ensures dockerd starts regardless of how the contain
 
 ## Features
 
-- **Docker Engine**: Latest stable Docker CE
+- **Docker Engine**: Provided by the catthehacker base via the `moby-*` packages (Docker 29.x)
 - **Docker Buildx**: Multi-platform build support
 - **Docker Compose Plugin**: Compose V2 (docker compose)
 - **Containerd**: Container runtime
@@ -197,12 +197,12 @@ docker pull ghcr.io/zaephor/dockerfiles/catthehacker/ubuntu-dind:act-24.04
 
 The Dockerfile is structured to maximize layer reuse:
 
-1. **Base layer stability**: Built on top of stable `ghcr.io/catthehacker/ubuntu` images
-2. **Dependency installation**: Docker packages installed in a single optimized layer
+1. **Base layer stability**: Built on top of stable `ghcr.io/catthehacker/ubuntu` images, which already include the Docker engine (moby)
+2. **Minimal added dependencies**: Only `gosu` is installed on top of the base — no separate Docker install layer to rebuild
 3. **Configuration separation**: Daemon configuration in separate layer from binaries
 4. **Entrypoint isolation**: Entrypoint script as final layer for easy updates
 
-This structure means most rebuilds only need to update the entrypoint layer, preserving the expensive Docker installation layer.
+This structure means most rebuilds only need to update the entrypoint layer, preserving the expensive base image layers.
 
 **Build History Tracking**
 
