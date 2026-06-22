@@ -55,9 +55,9 @@ FROM alpine:latest
 EOF
     cat > "$TEST_DIR/test-image/metadata.yaml" <<EOF
 name: test-image
-version_source: github_releases
-source:
-  github_repo: owner/repo
+version_source:
+  type: github_releases
+  repo: owner/repo
 EOF
     cd "$TEST_DIR/test-image"
     run "$PROJECT_ROOT/.github/scripts/local-tools/validate-metadata.sh" test-image
@@ -93,9 +93,9 @@ FROM alpine:latest
 EOF
     cat > "$TEST_DIR/test-image/metadata.yaml" <<EOF
 name: test-image
-version_source: github_releases
-source:
-  github_repo: owner/repo
+version_source:
+  type: github_releases
+  repo: owner/repo
 EOF
     cd "$TEST_DIR"
     run "$PROJECT_ROOT/.github/scripts/local-tools/check-conditional-build.sh" test-image
@@ -133,9 +133,10 @@ ENTRYPOINT ["cat"]
 EOF
     cat > "$TEST_DIR/valid-image/metadata.yaml" <<EOF
 name: valid-image
-version_source: docker_tag
-source:
-  image: alpine
+version_source:
+  type: docker_tag
+  registry: docker.io
+  image: library/alpine
 EOF
     cd "$TEST_DIR"
     run "$PROJECT_ROOT/.github/scripts/local-tools/lint-dockerfile.sh" valid-image

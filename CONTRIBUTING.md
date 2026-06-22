@@ -42,9 +42,9 @@ Copy and customize the metadata from your chosen example. Required fields:
 
 ```yaml
 name: my-image                    # Image name for tagging
-version_source: github_releases   # How to detect version
-source:                           # Source configuration
-  github_repo: owner/repo         # Repository for version detection
+version_source:                   # How to detect version
+  type: github_releases           # Detector type
+  repo: owner/repo                # Repository for version detection
 
 # Optional fields (defaults used if omitted):
 architectures: [amd64, arm64]     # Override auto-detection
@@ -122,8 +122,8 @@ Validates metadata.yaml file before pushing.
 
 **Checks**:
 - YAML syntax is valid
-- Required fields present: `name`, `version_source`, `source`
-- `version_source` value is one of: github_releases, binary_version, docker_tag, http_json
+- Required fields present: `name`, `version_source`
+- `version_source.type` value is one of: github_releases, git_commit, docker_tag, docker_digest, binary_version, http_json
 - Architectures (if specified) are valid: amd64, arm64, 386, ppc64le, s390x
 - Referenced Dockerfile variants exist
 
@@ -132,8 +132,8 @@ Validates metadata.yaml file before pushing.
 ```bash
 $ .github/scripts/local-tools/validate-metadata.sh hello-world
 ✓ YAML syntax valid
-✓ Required fields present: name, version_source, source
-✓ version_source value valid: github_releases
+✓ Required fields present: name, version_source
+✓ version_source.type value valid: github_releases
 ✓ Architectures not specified (will auto-detect)
 ✓ Metadata validation passed
 ```
@@ -174,8 +174,8 @@ Detected version: 1.0.0
 
 **Troubleshooting**:
 - GitHub API rate limit exceeded → Set `GITHUB_TOKEN` environment variable
-- Detector script not found → Check `version_source` value in metadata.yaml
-- Version regex mismatch → Check version_regex pattern (if specified)
+- Detector script not found → Check `version_source.type` value in metadata.yaml
+- Version regex mismatch → Check `version_regex` pattern (binary_version)
 
 ### check-conditional-build.sh
 
@@ -284,13 +284,13 @@ IMAGE_DIR="$1"
 METADATA_FILE="$IMAGE_DIR/metadata.yaml"
 
 # Source configuration is in metadata.yaml under:
-# version_source: {source-type}
-# source:
+# version_source:
+#   type: {source-type}
 #   ... detector-specific fields ...
 
 # Example for GitHub Releases:
-GITHUB_REPO=$(yq eval '.source.github_repo' "$METADATA_FILE")
-VERSION_REGEX=$(yq eval '.source.version_regex // "^v(.+)$"' "$METADATA_FILE")
+GITHUB_REPO=$(yq eval '.version_source.repo' "$METADATA_FILE")
+PRERELEASE_FILTER=$(yq eval '.version_source.prerelease_filter // false' "$METADATA_FILE")
 
 # Call API and detect version
 # ... your detection logic ...
@@ -381,8 +381,7 @@ When you modify workflow patterns or schema, you MUST update corresponding docum
 
 - Check GitHub API rate limit: `gh api rate_limit`
 - Set GitHub token: `export GITHUB_TOKEN=<your-token>`
-- Verify `github_repo` format in metadata.yaml
-- Check `version_regex` matches version tags (if specified)
+- Verify `version_source.repo` format in metadata.yaml
 
 ### Dockerfile linting fails?
 

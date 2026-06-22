@@ -1,8 +1,8 @@
 name: github-release-example
-version_source: github_releases
-source:
-  github_repo: example/example-project
-  version_regex: ^v(.+)$
-  prerelease_handling: stable
+version_source:
+  type: github_releases
+  repo: example/example-project
+  # prerelease_filter: false           # optional: skip pre-releases (default: false)
+  # auth_token_secret: GITHUB_TOKEN    # optional: env var holding a GitHub token
 
 architectures: [amd64, arm64]

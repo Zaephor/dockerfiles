@@ -19,41 +19,44 @@ This example demonstrates tracking a version from another Docker image in a regi
 ## Configuration Reference
 
 ```yaml
-version_source: docker_tag
-source:
-  docker_image: library/python            # Image to monitor
-  tag_pattern: "^3\\.(1[0-9]|[0-9])$"    # Only 3.10, 3.11, 3.12, etc.
+version_source:
+  type: docker_tag
+  registry: docker.io                     # Registry hostname
+  image: library/python                   # Image to monitor
+  tag_filter: '^3\.(1[0-9]|[0-9])$'      # Only 3.10, 3.11, 3.12, etc.
 ```
 
 ### Key Fields
 
-- **docker_image**: Image name (can include registry hostname)
-- **tag_pattern**: Regex to filter which tags to consider
+- **registry**: Registry hostname (e.g., `docker.io`)
+- **image**: Image name within the registry
+- **tag_filter**: Regex to filter which tags to consider
   - Match only stable versions
   - Exclude pre-releases, distroless variants, etc.
 
 ## Customization Steps
 
-1. **Set docker_image**: Image you depend on
+1. **Set registry and image**: Image you depend on
    ```yaml
-   docker_image: library/python           # Official Python
-   docker_image: library/node              # Official Node.js
-   docker_image: golang:latest             # Or any other image
+   registry: docker.io
+   image: library/python                  # Official Python
+   image: library/node                    # Official Node.js
+   image: library/golang                  # Or any other image
    ```
 
-2. **Adjust tag_pattern**: Filter to versions you want
+2. **Adjust tag_filter**: Filter to versions you want
    ```yaml
    # Python: Match 3.10, 3.11, 3.12 (not 3.9, not distroless, not slim)
-   tag_pattern: "^3\\.(1[0-9]|[0-9])$"
+   tag_filter: '^3\.(1[0-9]|[0-9])$'
 
    # Node.js: Match 18.x and 20.x LTS
-   tag_pattern: "^(18|20)\\."
+   tag_filter: '^(18|20)\.'
 
    # Go: Match stable releases (1.21.0, not 1.21.0-rc1)
-   tag_pattern: "^1\\.[0-9]+\\.[0-9]+$"
+   tag_filter: '^1\.[0-9]+\.[0-9]+$'
 
    # Match everything
-   tag_pattern: ".*"
+   tag_filter: '.*'
    ```
 
 3. **Update Dockerfile**: Use detected version as needed
@@ -77,21 +80,27 @@ source:
 
 ## Common Examples
 
-### Official Images (No Registry Prefix)
+### Official Images (Docker Hub)
 
 ```yaml
-docker_image: library/python
-docker_image: library/node
-docker_image: library/golang
-docker_image: library/ubuntu
+registry: docker.io
+image: library/python
+# image: library/node
+# image: library/golang
+# image: library/ubuntu
 ```
 
-### Third-Party Registries (Full Path)
+### Third-Party Registries
 
 ```yaml
-docker_image: ghcr.io/example/image
-docker_image: quay.io/example/image
-docker_image: mcr.microsoft.com/windows/servercore
+registry: ghcr.io
+image: example/image
+
+# registry: quay.io
+# image: example/image
+
+# registry: mcr.microsoft.com
+# image: windows/servercore
 ```
 
 ## References

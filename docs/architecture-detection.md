@@ -57,7 +57,9 @@ Specify architecture support explicitly in `metadata.yaml`:
 
 ```yaml
 # hello-world/metadata.yaml
-version_source: "github_releases:library/hello-world"
+version_source:
+  type: github_releases
+  repo: library/hello-world
 architectures:
   - amd64
   - arm64
@@ -208,7 +210,7 @@ Both formats are handled correctly. Legacy single-arch manifests detect only one
 Scans GitHub release assets for architecture-specific naming patterns.
 
 **Requirements**:
-- Image must use `version_source: "github_releases:owner/repo"` in metadata.yaml
+- Image must define a `version_source` map in metadata.yaml with `type: github_releases` and `repo: owner/repo`
 - GitHub API access (uses GITHUB_TOKEN for higher rate limits)
 
 ### Asset Naming Patterns
@@ -287,7 +289,11 @@ Tests architecture-specific download URLs for existence using HTTP HEAD requests
 
 ```yaml
 # hello-world/metadata.yaml
-version_source: "static:1.2.3"
+version_source:
+  type: docker_digest
+  registry: docker.io
+  image: library/alpine
+  tag: "3.19"
 download_url_template: "https://example.com/v{version}/binary-{arch}.tar.gz"
 ```
 
@@ -638,7 +644,7 @@ After implementation, verify:
 - Test manually: `docker buildx imagetools inspect --raw <base-image>`
 
 **GitHub release detection fails**:
-- Verify version_source is correct: `github_releases:owner/repo`
+- Verify version_source is a map with `type: github_releases` and `repo: owner/repo`
 - Check release exists for the version being built
 - Verify GITHUB_TOKEN has `repo` or `public_repo` scope
 - Check rate limits: `curl -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/rate_limit`

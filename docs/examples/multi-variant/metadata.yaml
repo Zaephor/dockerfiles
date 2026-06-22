@@ -1,8 +1,7 @@
 name: multi-variant-example
-version_source: github_releases
-source:
-  github_repo: example/example-app
-  version_regex: ^v(.+)$
+version_source:
+  type: github_releases
+  repo: example/example-app
 
 variants: [alpine]
 architectures: [amd64, arm64]

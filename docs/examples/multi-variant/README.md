@@ -23,9 +23,9 @@ name: multi-variant-example
 variants: [alpine]           # Create alpine variant
 
 # All variants share same version detection:
-version_source: github_releases
-source:
-  github_repo: example/app
+version_source:
+  type: github_releases
+  repo: example/app
 ```
 
 ## File Structure

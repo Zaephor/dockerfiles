@@ -85,47 +85,53 @@ fi
 
 print_header "Detecting version for: $IMAGE_NAME"
 
-# Get version source from metadata
-VERSION_SOURCE=$(get_metadata_field "$METADATA_FILE" "version_source")
-if [ "$VERSION_SOURCE" == "null" ] || [ -z "$VERSION_SOURCE" ]; then
-    error_message "version_source not specified in metadata.yaml"
+# Determine the configured detector type from version_source.
+# version_source is a map with a 'type' (or a sequence of such maps for a
+# fallback chain); read the first declared type for reporting.
+VERSION_SOURCE_KIND=$(yq eval '.version_source | type' "$METADATA_FILE" 2>/dev/null || echo "")
+case "$VERSION_SOURCE_KIND" in
+    "!!map") DETECTOR_TYPE=$(yq eval '.version_source.type' "$METADATA_FILE" 2>/dev/null) ;;
+    "!!seq") DETECTOR_TYPE=$(yq eval '.version_source[0].type' "$METADATA_FILE" 2>/dev/null) ;;
+    *)
+        error_message "version_source must be a map with a 'type' (see examples/)"
+        exit 1
+        ;;
+esac
+
+if [ -z "$DETECTOR_TYPE" ] || [ "$DETECTOR_TYPE" == "null" ]; then
+    error_message "version_source.type not specified in metadata.yaml"
     exit 1
 fi
 
-echo "Version source: $VERSION_SOURCE"
+echo "Version source type: $DETECTOR_TYPE"
 
-# Find detector script
-DETECTOR_NAME=$(normalize_detector_name "$VERSION_SOURCE")
-DETECTOR_SCRIPT=".github/scripts/detectors/${DETECTOR_NAME}.sh"
-
-if [ ! -f "$DETECTOR_SCRIPT" ]; then
-    error_message "Detector script not found: $DETECTOR_SCRIPT"
-    echo "Available detectors: $(get_available_detectors | tr '\n' ', ')" >&2
+# Detection is run through the orchestrator so detector dispatch, fallback
+# chains, and per-detector argument handling all match production behaviour.
+ORCHESTRATOR=".github/scripts/version-detection.sh"
+if [ ! -f "$ORCHESTRATOR" ]; then
+    error_message "Orchestrator not found: $ORCHESTRATOR"
     exit 4
 fi
 
-debug "Detector script: $DETECTOR_SCRIPT"
-
-# Get source configuration from metadata
-SOURCE_CONFIG=$(yq eval '.source' "$METADATA_FILE" 2>/dev/null || echo "null")
-if [ "$SOURCE_CONFIG" == "null" ]; then
-    error_message "source configuration not found in metadata.yaml"
-    exit 1
-fi
-
-echo "Calling detector: $DETECTOR_SCRIPT"
+echo "Running: $ORCHESTRATOR --config $METADATA_FILE --image-name $IMAGE_NAME --variant default"
 echo ""
 
-# Call detector and capture output
-if ! DETECTED_VERSION=$("$DETECTOR_SCRIPT" "$IMAGE_DIR" 2>&1); then
+# Orchestrator emits a JSON result on stdout; logs go to stderr.
+if ! RESULT=$("$ORCHESTRATOR" --config "$METADATA_FILE" --image-name "$IMAGE_NAME" --variant default 2>/dev/null); then
     echo ""
     error_message "Version detection failed"
-    echo "Detector exit code: $?" >&2
     echo "Troubleshooting tips:" >&2
     echo "  - Check GitHub API rate limits: gh api rate_limit" >&2
     echo "  - Set GITHUB_TOKEN: export GITHUB_TOKEN=<token>" >&2
-    echo "  - Verify source configuration in metadata.yaml matches detector expectations" >&2
-    echo "  - Run detector with full output: $DETECTOR_SCRIPT $IMAGE_DIR" >&2
+    echo "  - Verify version_source fields match the detector's expectations" >&2
+    echo "  - Re-run with logs: DEBUG=true $ORCHESTRATOR --config $METADATA_FILE --image-name $IMAGE_NAME --variant default" >&2
+    exit 1
+fi
+
+DETECTED_VERSION=$(echo "$RESULT" | jq -r '.version // empty' 2>/dev/null || echo "")
+if [ -z "$DETECTED_VERSION" ]; then
+    error_message "Version detection returned no version"
+    echo "$RESULT" >&2
     exit 1
 fi
 

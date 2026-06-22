@@ -1,8 +1,8 @@
 name: binary-version-example
-version_source: binary_version
-source:
+version_source:
+  type: binary_version
   binary_path: /usr/local/bin/tool
-  version_command: --version
-  version_regex: "version (.+)"
+  version_regex: 'version ([0-9.]+)'   # bash ERE: use [0-9], not \d
+  # version_flags: --version           # optional: flags passed to the binary (default: --version)
 
 architectures: [amd64, arm64]

@@ -20,7 +20,7 @@ This directory contains ready-to-use example templates for common patterns. Copy
    ```
 3. **Customize** the Dockerfile and metadata.yaml:
    - Update `name` in metadata.yaml
-   - Update `version_source` and `source` fields
+   - Update the `version_source` map fields
    - Update download URL or base image
 4. **Test locally**:
    ```bash
@@ -43,11 +43,10 @@ This directory contains ready-to-use example templates for common patterns. Copy
 **Examples**: kubectl, helm, prometheus, docker, git-lfs, etc.
 
 ```yaml
-version_source: github_releases
-source:
-  github_repo: owner/repo
-  version_regex: ^v(.+)$
-  prerelease_handling: stable
+version_source:
+  type: github_releases
+  repo: owner/repo
+  # prerelease_filter: false       # optional
 ```
 
 **How it works**:
@@ -69,11 +68,11 @@ RUN curl -fsSL "https://github.com/owner/repo/releases/download/v${VERSION}/bina
 **Examples**: go, rust, deno, bun, etc.
 
 ```yaml
-version_source: binary_version
-source:
+version_source:
+  type: binary_version
   binary_path: /usr/local/bin/tool
-  version_command: --version
-  version_regex: "version (.+)"
+  version_regex: 'version ([0-9.]+)'
+  # version_flags: --version       # optional
 ```
 
 **How it works**:
@@ -100,10 +99,11 @@ RUN apt-get install -y tool
 **Examples**: python, node, golang, ubuntu, debian, etc.
 
 ```yaml
-version_source: docker_tag
-source:
-  docker_image: library/python
-  tag_pattern: "^3\\.(1[0-9]|[0-9])$"
+version_source:
+  type: docker_tag
+  registry: docker.io
+  image: library/python
+  tag_filter: '^3\.(1[0-9]|[0-9])$'
 ```
 
 **How it works**:
@@ -125,9 +125,9 @@ source:
 
 ```yaml
 variants: [alpine]          # or [alpine, slim, distroless]
-version_source: github_releases
-source:
-  github_repo: owner/repo
+version_source:
+  type: github_releases
+  repo: owner/repo
 ```
 
 **How it works**:
@@ -187,10 +187,9 @@ my-app/
 - **Binary**: Attached to releases
 - **Configuration**:
   ```yaml
-  version_source: github_releases
-  source:
-    github_repo: kubernetes/kubernetes
-    version_regex: ^v(.+)$
+  version_source:
+    type: github_releases
+    repo: kubernetes/kubernetes
   ```
 
 ### Example 2: Python-based App
@@ -201,10 +200,11 @@ my-app/
 - **Binary**: Base image
 - **Configuration**:
   ```yaml
-  version_source: docker_tag
-  source:
-    docker_image: library/python
-    tag_pattern: "^3\\.(1[0-9]|[0-9])(?:-slim)?$"
+  version_source:
+    type: docker_tag
+    registry: docker.io
+    image: library/python
+    tag_filter: '^3\.(1[0-9]|[0-9])(-slim)?$'
   ```
 
 ### Example 3: Compiled Tool with Binary Release
@@ -215,17 +215,16 @@ my-app/
 - **Binary**: Released tarball with pre-compiled binary
 - **Configuration**:
   ```yaml
-  version_source: github_releases
-  source:
-    github_repo: owner/tool-repo
-    version_regex: ^v(.+)$
+  version_source:
+    type: github_releases
+    repo: owner/tool-repo
   ```
 
 ## Complete Checklist for New Image
 
 - [ ] Copy example matching your upstream source type
 - [ ] Update image name in metadata.yaml
-- [ ] Update version source and source config
+- [ ] Update the version_source map config
 - [ ] Update Dockerfile (base image, installation steps)
 - [ ] Test locally: `validate-metadata.sh`
 - [ ] Test locally: `test-version-detection.sh`
@@ -246,7 +245,7 @@ Check YAML syntax and required fields.
 .github/scripts/local-tools/test-version-detection.sh my-image
 export GITHUB_TOKEN=your_token   # If GitHub API rate limit
 ```
-Verify `github_repo` or detector configuration.
+Verify `version_source.repo` or detector configuration.
 
 **Dockerfile linting fails**
 ```bash

@@ -85,11 +85,12 @@ get_available_detectors() {
     done
 }
 
-# Convert version_source from metadata.yaml to detector script name
-# Maps: github_releases → github-releases, github_tags → github-tags, etc.
+# Convert a version_source.type value to its detector script name.
+# The orchestrator dispatches to detectors/<type>.sh, so the type already
+# equals the script basename (underscores, e.g. binary_version). Identity.
 normalize_detector_name() {
     local source="$1"
-    echo "$source" | sed 's/_/-/g'
+    echo "$source"
 }
 
 # Check if image has history.jsonl file

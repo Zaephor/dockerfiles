@@ -8,9 +8,9 @@ Minimal `metadata.yaml`:
 
 ```yaml
 name: my-image
-version_source: github_releases
-source:
-  github_repo: owner/repo
+version_source:
+  type: github_releases
+  repo: owner/repo
 ```
 
 This enables:
@@ -39,110 +39,124 @@ Image name used for tagging. Must be lowercase alphanumeric with hyphens.
 
 #### `version_source`
 
-Method for detecting the upstream version. Determines which detector script runs.
+How to detect the upstream version. This is a **map** carrying a `type` plus the
+fields that detector needs. The `type` value must match a detector script name
+(`.github/scripts/detectors/<type>.sh`). There is no separate `source:` block —
+the detector's fields live directly under `version_source`.
 
-- **Type**: String (enum)
+- **Type**: Object (map), or a sequence of such maps for a fallback chain
 - **Required**: Yes
-- **Valid values**:
+- **`type`** (string, required): one of
   - `github_releases` - GitHub Release tags
-  - `binary_version` - Binary --version output
-  - `docker_tag` - Docker registry tag
-  - `http_json` - HTTP API returning JSON
+  - `git_commit` - latest commit SHA on a branch
+  - `docker_tag` - newest matching tag in a Docker registry
+  - `docker_digest` - manifest digest of a fixed Docker tag
+  - `binary_version` - version printed by a binary inside the image
+  - `http_json` - version field from an HTTP JSON/XML endpoint
 - **Example**:
   ```yaml
-  version_source: github_releases
+  version_source:
+    type: github_releases
+    repo: owner/repo
   ```
 
-#### `source`
-
-Configuration for version detection. Structure depends on `version_source`.
-
-- **Type**: Object (map)
-- **Required**: Yes
-- **Examples** (see sections below):
-  ```yaml
-  source:
-    github_repo: owner/repo
-  ```
-
-### Conditional Fields (depends on version_source)
-
-#### For `github_releases`:
+**Fallback chain** — list several detectors; the first that succeeds wins:
 
 ```yaml
-version_source: github_releases
-source:
-  github_repo: owner/repo                    # Required: GitHub repo
-  version_regex: ^v(.+)$                     # Optional: extract version from tag
-  prerelease_handling: prefer-stable         # Optional: stable, prefer-stable, allow-prerelease
+version_source:
+  - type: github_releases
+    repo: owner/repo
+  - type: binary_version
+    binary_path: /usr/local/bin/tool
+    version_regex: '([0-9.]+)'
 ```
 
-- **github_repo** (string): Repository in format `owner/repo`
-- **version_regex** (string): Regex pattern to extract version from release tag
-  - Default: `^v(.+)$` (matches v1.2.3, extracts 1.2.3)
-  - Capture group 1 extracts the version
-  - Example: `^release-(.+)-final$` matches `release-1.0-final`, extracts `1.0`
-- **prerelease_handling** (enum): How to handle pre-releases
-  - `stable` - Skip pre-releases entirely
-  - `prefer-stable` - Prefer stable, fallback to pre-release if available
-  - `allow-prerelease` - Include pre-releases in version list
-  - Default: `prefer-stable`
+### Detector fields (per `type`)
 
-#### For `binary_version`:
+> Regex fields are matched with bash `[[ =~ ]]` (POSIX ERE). Use `[0-9]`, not `\d`.
+
+#### `github_releases`
 
 ```yaml
-version_source: binary_version
-source:
-  binary_path: /usr/local/bin/myapp          # Required: path in image
-  version_command: --version                 # Optional: flag to get version
-  version_regex: version (.+)                # Optional: extract version from output
+version_source:
+  type: github_releases
+  repo: owner/repo                  # Required: GitHub repo (owner/name)
+  # prerelease_filter: false        # Optional: include pre-releases (default: false)
+  # auth_token_secret: GITHUB_TOKEN # Optional: env var holding a GitHub token
 ```
 
-- **binary_path** (string): Path to binary inside image to execute
-- **version_command** (string): Flag to pass to binary for version output
-  - Default: `--version`
-  - Example: `-v`, `version`, `info`
-- **version_regex** (string): Regex to extract version from command output
-  - Default: `(.+)` (use entire output as version)
-  - Example: `v(.+)` extracts version from `v1.2.3` output
+- **repo** (string, required): repository in `owner/name` form. The latest non-draft,
+  non-prerelease release tag is used (leading `v` is stripped).
 
-Example in Dockerfile:
-```dockerfile
-RUN apt-get install -y myapp
-# Verify: myapp --version → "myapp version 1.2.3"
-```
-
-#### For `docker_tag`:
+#### `git_commit`
 
 ```yaml
-version_source: docker_tag
-source:
-  docker_image: library/python                # Required: Docker image
-  tag_pattern: "\d+\.\d+\.\d+"                # Optional: filter tags
+version_source:
+  type: git_commit
+  repo: owner/repo                  # Required: GitHub repo (owner/name)
+  branch: main                      # Optional: branch (default: repo's default branch)
+  # auth_token_secret: GITHUB_TOKEN # Optional
 ```
 
-- **docker_image** (string): Docker image to monitor (can be any registry)
-- **tag_pattern** (string): Regex to filter which tags to consider
-  - Default: Match all tags
-  - Example: `\d+\.\d+\.\d+` matches semantic versions like 1.2.3
+- **repo** (string, required): repository to read commits from.
+- **branch** (string, optional): branch to track; the short commit SHA becomes the version.
 
-#### For `http_json`:
+#### `docker_tag`
 
 ```yaml
-version_source: http_json
-source:
-  url: https://api.example.com/version       # Required: HTTP endpoint
-  json_path: .latest.version                 # Required: jq path to extract
-  auth_header: Authorization: Bearer token   # Optional: auth header
+version_source:
+  type: docker_tag
+  registry: docker.io               # Required: registry host
+  image: library/python             # Required: image name (no registry prefix)
+  # tag_filter: '^[0-9]+\.[0-9]+$'  # Optional: regex selecting version tags
+  # auth_token_secret: GHCR_TOKEN   # Optional
 ```
 
-- **url** (string): HTTP endpoint returning JSON
-- **json_path** (string): jq path to extract version from response
-  - Example: `.version` for `{"version": "1.2.3"}`
-  - Example: `.releases[0].version` for nested data
-- **auth_header** (string): Authentication header if API requires it
-  - Format: `Header-Name: value`
-  - Example: `Authorization: Bearer token123`
+- **registry** / **image** (string, required): which registry image to watch.
+- **tag_filter** (string, optional): ERE selecting which tags count; the highest
+  matching version is chosen.
+
+#### `docker_digest`
+
+```yaml
+version_source:
+  type: docker_digest
+  registry: docker.io               # Required: registry host
+  image: library/alpine             # Required: image name (no registry prefix)
+  tag: "3.19"                       # Required: tag to track (may contain {variant})
+  # auth_token_secret: GITHUB_TOKEN # Optional
+```
+
+- Tracks the manifest **digest** of a fixed tag; rebuilds when the upstream tag is
+  re-pushed. `tag` may contain `{variant}` for per-variant tracking.
+
+#### `binary_version`
+
+```yaml
+version_source:
+  type: binary_version
+  binary_path: /usr/local/bin/myapp   # Required: path in the built image
+  version_regex: 'myapp ([0-9.]+)'    # Required: ERE; capture group 1 is the version
+  # version_flags: --version          # Optional: flags passed to the binary (default: --version)
+```
+
+- Builds the image, runs `binary_path version_flags`, and extracts capture group 1
+  of `version_regex` from the combined stdout/stderr.
+
+#### `http_json`
+
+```yaml
+version_source:
+  type: http_json
+  url: https://api.example.com/version  # Required: endpoint
+  format: json                          # Required: json or xml
+  path: .latest.version                 # Required: jq path (json) / XPath (xml)
+  # headers:                            # Optional: request headers (${VAR} expanded)
+  #   Authorization: 'Bearer ${API_TOKEN}'
+```
+
+- **url** / **format** / **path** (required): fetch the endpoint and extract the version.
+  - `path: .version` for `{"version": "1.2.3"}`; `.releases[0].version` for nested data.
 
 ### Optional Fields
 
@@ -384,125 +398,72 @@ Automatically added labels (don't specify these):
 
 ```yaml
 name: kubectl
-version_source: github_releases
-source:
-  github_repo: kubernetes/kubernetes
-  version_regex: ^v(.+)$
-  prerelease_handling: stable
+version_source:
+  type: github_releases
+  repo: kubernetes/kubernetes
 ```
 
 - Detects versions from Kubernetes GitHub releases
-- Skips pre-releases (alpha, beta)
-- Extracts version from tag `v1.28.0` → `1.28.0`
+- Skips drafts and pre-releases; strips a leading `v` (tag `v1.28.0` → `1.28.0`)
 
 ### Example 2: Binary Version Detection
 
 ```yaml
 name: helm
-version_source: binary_version
-source:
+version_source:
+  type: binary_version
   binary_path: /usr/local/bin/helm
-  version_command: version --short
-  version_regex: v(.+)
+  version_flags: version --short
+  version_regex: 'v([0-9.]+)'
 ```
 
 - Builds image with helm binary
 - Detects version by running `helm version --short`
-- Extracts version from output like `v3.12.0`
+- Extracts capture group 1 from output like `v3.12.0` → `3.12.0`
 
-### Example 3: Docker Image Source
+### Example 3: Docker Tag Source
 
 ```yaml
 name: python-base
-version_source: docker_tag
-source:
-  docker_image: library/python
-  tag_pattern: "^3\\.(1[0-9]|[0-9])$"  # Match 3.10, 3.11, 3.12, etc.
+version_source:
+  type: docker_tag
+  registry: docker.io
+  image: library/python
+  tag_filter: '^3\.(1[0-9]|[0-9])$'   # Match 3.10, 3.11, 3.12, etc.
 architectures: [amd64, arm64]
 ```
 
 - Monitors official Python image tags
-- Only considers stable versions (3.10, 3.11, etc.)
-- Filters out pre-releases and RC versions
+- `tag_filter` keeps only stable minor versions; the highest match wins
 
-### Example 4: Multiple Variants
+### Example 4: Docker Digest Source
+
+```yaml
+name: my-base
+version_source:
+  type: docker_digest
+  registry: docker.io
+  image: library/alpine
+  tag: "3.19"
+architectures: [amd64, arm64]
+```
+
+- Tracks the digest of `alpine:3.19`; rebuilds whenever that tag is re-pushed upstream
+
+### Example 5: Multiple Variants
 
 ```yaml
 name: nodejs
-version_source: github_releases
-source:
-  github_repo: nodejs/node
-  version_regex: ^v(.+)$
+version_source:
+  type: github_releases
+  repo: nodejs/node
 variants: [alpine, slim]
 architectures: [amd64, arm64]
-registries:
-  - name: ghcr
-    enabled: true
-  - name: docker-hub
-    enabled: true
 ```
 
 - Detects version from Node.js releases
-- Builds 3 variants: main, alpine, slim
-- Pushes to both GHCR and Docker Hub
+- Builds 3 variants: default, alpine, slim — all sharing the detected version
 - Multi-arch support (amd64 and arm64)
-
-### Example 5: Version Regex Patterns
-
-Different projects use different tag formats:
-
-```yaml
-# Kubernetes style: v1.2.3
-version_source: github_releases
-source:
-  github_repo: kubernetes/kubernetes
-  version_regex: ^v(.+)$
-
-# Django style: 4.2.1
-version_source: github_releases
-source:
-  github_repo: django/django
-  version_regex: ^([0-9.]+)$
-
-# Vault style: v1.14.0+ent
-version_source: github_releases
-source:
-  github_repo: hashicorp/vault
-  version_regex: ^v(.+?)\+
-
-# Hugo style: v0.119.0-extended
-version_source: github_releases
-source:
-  github_repo: gohugoio/hugo
-  version_regex: ^v(.+?)(?:-extended)?$
-```
-
-## Advanced: Custom Configuration
-
-### Conditionally Skip Versions
-
-Exclude certain version ranges with version_regex:
-
-```yaml
-# Skip release candidates
-version_regex: ^(?!.*rc)v(.+)$          # negative lookahead
-
-# Only match stable semver (not pre-releases)
-version_regex: ^v(\d+\.\d+\.\d+)$       # strict semver only
-```
-
-### Multi-Regex Patterns
-
-Some projects have inconsistent tag formats. Use fallback patterns:
-
-```yaml
-source:
-  github_repo: example/repo
-  version_patterns:
-    - ^v(.+)$                           # Try v1.2.3
-    - ^release-(.+)$                    # Fallback: release-1.2.3
-    - ^(.+)$                            # Fallback: 1.2.3
-```
 
 ## Validation
 
@@ -518,19 +479,18 @@ Metadata is validated before each build:
 
 Validation checks:
 - ✓ YAML syntax is valid
-- ✓ Required fields present: `name`, `version_source`, `source`
-- ✓ `version_source` is one of allowed values
-- ✓ Source configuration matches detector requirements
+- ✓ Required fields present: `name`, `version_source`
+- ✓ `version_source` is a map whose `type` is one of the allowed values
+- ✓ The detector's required fields are present for that `type`
 - ✓ Architecture values are valid
 - ✓ Variant Dockerfiles exist
-- ✓ Registry names are valid
 
 ## Troubleshooting
 
 ### Version not detecting
 
-1. Verify version_source value is correct
-2. Check source configuration matches repository/binary path
+1. Verify `version_source.type` is correct
+2. Check the detector's fields match the repository/binary path
 3. Test locally: `.github/scripts/local-tools/test-version-detection.sh IMAGE_NAME`
 4. Check GitHub API rate limits: `gh api rate_limit`
 5. See [docs/troubleshooting.md](troubleshooting.md)
@@ -552,7 +512,7 @@ Run validation locally to see detailed errors:
 Common issues:
 - YAML indentation (must be 2 spaces)
 - Required fields missing
-- `version_source` value not in allowed list
+- `version_source.type` not in allowed list
 - Architecture values invalid
 
 ## Related

@@ -1,7 +1,9 @@
 name: docker-tag-example
-version_source: docker_tag
-source:
-  docker_image: library/python
-  tag_pattern: "^3\\.(1[0-9]|[0-9])(?:-slim)?$"
+version_source:
+  type: docker_tag
+  registry: docker.io
+  image: library/python
+  # tag_filter: '^3\.(1[0-9]|[0-9])$'   # optional: regex selecting version tags
+  # auth_token_secret: GHCR_TOKEN       # optional: env var holding a registry token
 
 architectures: [amd64, arm64]

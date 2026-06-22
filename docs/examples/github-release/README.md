@@ -23,30 +23,23 @@ See [docs/yaml-config-reference.md](../../docs/yaml-config-reference.md) for fie
 ### Key Fields
 
 ```yaml
-version_source: github_releases        # Use GitHub releases detection
-source:
-  github_repo: owner/repo              # GitHub repository
-  version_regex: ^v(.+)$               # Extract version from tag
-  prerelease_handling: stable           # Skip alpha/beta releases
+version_source:
+  type: github_releases                 # Use GitHub releases detection
+  repo: owner/repo                      # GitHub repository
+  # prerelease_filter: false            # optional: skip alpha/beta releases
+  # auth_token_secret: GITHUB_TOKEN     # optional
 ```
 
 ## Customization Steps
 
-1. **Update github_repo**: Point to your upstream project
+1. **Update repo**: Point to your upstream project
    ```yaml
-   github_repo: kubernetes/kubernetes
+   repo: kubernetes/kubernetes
    ```
 
-2. **Adjust version_regex**: Match your project's tag format
+2. **Filter prereleases (optional)**: Skip alpha/beta releases
    ```yaml
-   # For tags like: v1.2.3
-   version_regex: ^v(.+)$
-
-   # For tags like: release-1.2.3
-   version_regex: ^release-(.+)$
-
-   # For tags with suffixes: v1.2.3-extended
-   version_regex: ^v(.+?)(?:-extended)?$
+   prerelease_filter: false   # set true to include prereleases
    ```
 
 3. **Update download URL**: Point to correct release asset

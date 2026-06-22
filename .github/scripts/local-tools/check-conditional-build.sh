@@ -127,19 +127,18 @@ fi
 
 echo "Latest version in history: $LATEST_VERSION"
 
-# Try to detect current version (requires detectors to exist)
+# Try to detect current version via the orchestrator (handles detector
+# dispatch, fallback chains, and per-detector argument handling).
 CURRENT_VERSION=""
 if [ -f "$IMAGE_DIR/metadata.yaml" ]; then
-    VERSION_SOURCE=$(get_metadata_field "$IMAGE_DIR/metadata.yaml" "version_source" 2>/dev/null || echo "")
-    if [ -n "$VERSION_SOURCE" ] && [ "$VERSION_SOURCE" != "null" ]; then
-        DETECTOR_NAME=$(normalize_detector_name "$VERSION_SOURCE")
-        DETECTOR_SCRIPT=".github/scripts/detectors/${DETECTOR_NAME}.sh"
-
-        if [ -f "$DETECTOR_SCRIPT" ]; then
-            debug "Calling detector to get current version..."
-            if CURRENT_VERSION=$("$DETECTOR_SCRIPT" "$IMAGE_DIR" 2>/dev/null || echo ""); then
-                [ -n "$CURRENT_VERSION" ] && debug "Current version: $CURRENT_VERSION"
-            fi
+    VERSION_SOURCE_TYPE=$(yq eval '.version_source.type // .version_source[0].type // ""' \
+        "$IMAGE_DIR/metadata.yaml" 2>/dev/null || echo "")
+    ORCHESTRATOR=".github/scripts/version-detection.sh"
+    if [ -n "$VERSION_SOURCE_TYPE" ] && [ "$VERSION_SOURCE_TYPE" != "null" ] && [ -f "$ORCHESTRATOR" ]; then
+        debug "Calling orchestrator to get current version..."
+        if RESULT=$("$ORCHESTRATOR" --config "$IMAGE_DIR/metadata.yaml" --image-name "$IMAGE_NAME" --variant default 2>/dev/null); then
+            CURRENT_VERSION=$(echo "$RESULT" | jq -r '.version // empty' 2>/dev/null || echo "")
+            [ -n "$CURRENT_VERSION" ] && debug "Current version: $CURRENT_VERSION"
         fi
     fi
 fi

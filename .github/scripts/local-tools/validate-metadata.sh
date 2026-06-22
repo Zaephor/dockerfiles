@@ -7,8 +7,9 @@ source "${SCRIPT_DIR}/lib/local-common.sh"
 
 VERBOSE=false
 
-# Valid values for enum fields
-VALID_VERSION_SOURCES=("github_releases" "binary_version" "docker_tag" "http_json")
+# Valid values for enum fields.
+# version_source.type must match a detector script name (detectors/<type>.sh).
+VALID_VERSION_SOURCES=("github_releases" "git_commit" "docker_tag" "docker_digest" "binary_version" "http_json")
 VALID_ARCHITECTURES=("amd64" "arm64" "386" "ppc64le" "s390x")
 VALID_VERIFICATION_MODES=("none" "python-cli" "binary" "command" "port")
 
@@ -86,7 +87,7 @@ METADATA_FILE="$IMAGE_DIR/metadata.yaml"
 
 if [ ! -f "$METADATA_FILE" ]; then
     error_message "metadata.yaml not found in $IMAGE_DIR/"
-    echo "Create metadata.yaml with required fields: name, version_source, source" >&2
+    echo "Create metadata.yaml with required fields: name, version_source (a map with a 'type')" >&2
     echo "See examples/ directory for templates" >&2
     exit 4
 fi
@@ -102,33 +103,94 @@ success_message "YAML syntax valid"
 
 # Validate required fields
 debug "Validating required fields..."
-if ! validate_required_fields "$METADATA_FILE" "name" "version_source" "source"; then
+if ! validate_required_fields "$METADATA_FILE" "name" "version_source"; then
     exit 1
 fi
-success_message "Required fields present: name, version_source, source"
+success_message "Required fields present: name, version_source"
 
-# Validate version_source enum
-debug "Validating version_source value..."
-VERSION_SOURCE=$(get_metadata_field "$METADATA_FILE" "version_source")
-if [ "$VERSION_SOURCE" == "null" ] || [ -z "$VERSION_SOURCE" ]; then
-    error_message "version_source is required"
+# Validate version_source is a map with a recognised type.
+#
+# Schema: version_source is a mapping carrying a 'type' plus detector-specific
+# fields (the same object the detectors and orchestrator read). A fallback
+# chain is expressed as a sequence of such mappings.
+debug "Validating version_source..."
+VERSION_SOURCE_KIND=$(yq eval '.version_source | type' "$METADATA_FILE" 2>/dev/null || echo "")
+
+# Collect the type(s) declared. For a single map: .version_source.type.
+# For a sequence (fallback chain): each element's .type.
+declare -a DECLARED_TYPES=()
+case "$VERSION_SOURCE_KIND" in
+    "!!map")
+        mapfile -t DECLARED_TYPES < <(yq eval '.version_source.type' "$METADATA_FILE" 2>/dev/null)
+        ;;
+    "!!seq")
+        mapfile -t DECLARED_TYPES < <(yq eval '.version_source[].type' "$METADATA_FILE" 2>/dev/null)
+        ;;
+    *)
+        error_message "version_source must be a map (a 'type' plus its fields), not a bare scalar"
+        echo "Example:" >&2
+        echo "  version_source:" >&2
+        echo "    type: github_releases" >&2
+        echo "    repo: owner/project" >&2
+        exit 1
+        ;;
+esac
+
+if [ ${#DECLARED_TYPES[@]} -eq 0 ]; then
+    error_message "version_source is missing a 'type'"
     exit 1
 fi
 
-valid=false
-for valid_source in "${VALID_VERSION_SOURCES[@]}"; do
-    if [ "$VERSION_SOURCE" == "$valid_source" ]; then
-        valid=true
-        break
+# Validate each declared type and its required fields.
+for idx in "${!DECLARED_TYPES[@]}"; do
+    vtype="${DECLARED_TYPES[$idx]}"
+
+    if [ -z "$vtype" ] || [ "$vtype" == "null" ]; then
+        error_message "version_source entry $((idx + 1)) is missing a 'type'"
+        exit 1
     fi
-done
 
-if [ "$valid" = false ]; then
-    error_message "version_source has invalid value: $VERSION_SOURCE"
-    echo "Valid values: ${VALID_VERSION_SOURCES[*]}" >&2
-    exit 1
-fi
-success_message "version_source value valid: $VERSION_SOURCE"
+    type_valid=false
+    for valid_source in "${VALID_VERSION_SOURCES[@]}"; do
+        if [ "$vtype" == "$valid_source" ]; then
+            type_valid=true
+            break
+        fi
+    done
+    if [ "$type_valid" = false ]; then
+        error_message "version_source type has invalid value: $vtype"
+        echo "Valid values: ${VALID_VERSION_SOURCES[*]}" >&2
+        exit 1
+    fi
+
+    # Base path to this entry's fields (single map vs. sequence element).
+    if [ "$VERSION_SOURCE_KIND" == "!!seq" ]; then
+        base=".version_source[$idx]"
+    else
+        base=".version_source"
+    fi
+
+    # Detector-specific required fields.
+    required_fields=()
+    case "$vtype" in
+        github_releases) required_fields=("repo") ;;
+        git_commit)      required_fields=("repo") ;;
+        docker_tag)      required_fields=("registry" "image") ;;
+        docker_digest)   required_fields=("registry" "image" "tag") ;;
+        binary_version)  required_fields=("binary_path" "version_regex") ;;
+        http_json)       required_fields=("url" "format" "path") ;;
+    esac
+
+    for field in "${required_fields[@]}"; do
+        fval=$(yq eval "${base}.${field}" "$METADATA_FILE" 2>/dev/null || echo "null")
+        if [ -z "$fval" ] || [ "$fval" == "null" ]; then
+            error_message "version_source ($vtype) is missing required field: $field"
+            exit 1
+        fi
+    done
+
+    success_message "version_source type valid: $vtype"
+done
 
 # Validate architectures if specified
 debug "Validating architectures..."
