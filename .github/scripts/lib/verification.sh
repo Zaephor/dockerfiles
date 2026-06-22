@@ -35,6 +35,34 @@ readonly VALID_VERIFICATION_MODES=("none" "python-cli" "binary" "command" "port"
 # Default timeout for container operations (seconds)
 readonly DEFAULT_TIMEOUT=60
 readonly DEFAULT_PORT_TIMEOUT=30
+# Generous, separate bound for the image pull so a slow pull (e.g. a large
+# image on arm64) is not charged against the per-command verification timeout.
+readonly DEFAULT_IMAGE_PULL_TIMEOUT="${VERIFY_IMAGE_PULL_TIMEOUT:-600}"
+
+# ensure_image_present: Pull the image once, outside the verification timeout.
+#
+# The per-command timeout is meant to bound command execution, not the network
+# pull. docker run otherwise pulls a missing image inside that timeout, so a
+# pull that is slower than the timeout fails the command with exit 124 before it
+# ever runs. Pulling here (bounded separately) means the subsequent timed
+# `docker run` finds the image locally and does not pull.
+#
+# Arguments:
+#   IMAGE: Image reference (tag or digest)
+#
+# Returns:
+#   0 if the image is present (or was pulled), non-zero if the pull failed
+#
+ensure_image_present() {
+  local image="$1"
+
+  if docker image inspect "$image" >/dev/null 2>&1; then
+    return 0
+  fi
+
+  echo "[VERIFY] Pulling image before verification (not counted against the command timeout): $image" >&2
+  timeout "$DEFAULT_IMAGE_PULL_TIMEOUT" docker pull "$image" >/dev/null 2>&1
+}
 
 # parse_verification_config: Parse verification configuration from metadata.yaml
 #
@@ -193,6 +221,9 @@ run_in_container() {
     fi
   done < <(echo "$env_vars" | jq -r 'to_entries | .[] | "\(.key)=\(.value)"' 2>/dev/null || true)
 
+  # Pull the image first so the pull does not consume the command timeout.
+  ensure_image_present "$image" || true
+
   # Run container with timeout, bypassing entrypoint to run verification commands directly
   timeout "$timeout" docker run "${docker_args[@]}" "$image" sh -c "$command" 2>&1
 }
@@ -228,6 +259,9 @@ run_container_background() {
       docker_args+=("-e" "$env_line")
     fi
   done < <(echo "$env_vars" | jq -r 'to_entries | .[] | "\(.key)=\(.value)"' 2>/dev/null || true)
+
+  # Pull the image first so a slow pull does not eat into the port startup wait.
+  ensure_image_present "$image" || true
 
   docker run "${docker_args[@]}" "$image"
 }
@@ -678,6 +712,7 @@ output_json_result() {
 export -f parse_verification_config
 export -f get_verification_mode
 export -f validate_verification_config
+export -f ensure_image_present
 export -f run_in_container
 export -f run_container_background
 export -f wait_for_port
