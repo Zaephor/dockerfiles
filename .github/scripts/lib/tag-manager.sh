@@ -223,6 +223,60 @@ get_docker_tags() {
   echo "${full_tags% }"
 }
 
+# Get the version-derived "release" tags for a default-variant build.
+#
+# Only real version strings are tagged; opaque values (image digests,
+# commit SHAs, rolling tags like "edge") return nothing, which is what keeps
+# digest-tracked images (e.g. hello-world) on commit/branch tags only.
+#
+# Tag set:
+#   - semver (X.Y.Z[-pre]): full version + major.minor (when latest in its
+#       lineage) + latest (when globally latest). The bare-major tag is
+#       intentionally omitted.
+#   - calver: full version + calver partials + latest (when globally latest).
+#
+# Arguments:
+#   $1: Detected version for this build
+#   $2: Space-separated list of all known versions (defaults to $1)
+#
+# Output:
+#   Newline-separated tag list (possibly empty)
+#
+get_default_release_tags() {
+  local version="$1"
+  local all_versions="${2:-$1}"
+
+  [[ -z "$version" || "$version" == "null" ]] && return 0
+
+  # Make sure the current version participates in lineage/global comparisons.
+  case " $all_versions " in
+    *" $version "*) ;;
+    *) all_versions="$all_versions $version" ;;
+  esac
+
+  if is_calver "$version"; then
+    {
+      determine_tags_to_update "$version" "$all_versions" | tr ' ' '\n'
+      generate_calver_tags "$version" | tr ' ' '\n'
+    } | grep -v '^$' | sort -u
+    return 0
+  fi
+
+  # Strict semver: MAJOR.MINOR.PATCH with optional -prerelease / +build.
+  if [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-+].*)?$ ]]; then
+    # Keep full + major.minor (tokens containing '.') and 'latest';
+    # drop the bare-major token per the chosen tag set.
+    determine_tags_to_update "$version" "$all_versions" \
+      | tr ' ' '\n' \
+      | grep -E '\.|^latest$' \
+      | sort -u
+    return 0
+  fi
+
+  # Opaque (digest, commit SHA, rolling tag): no version tags.
+  return 0
+}
+
 # Check if rebuilding this version would change any existing tags
 #
 # Arguments:

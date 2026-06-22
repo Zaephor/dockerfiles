@@ -10,10 +10,12 @@
 #
 # Configuration (metadata.yaml):
 #   version_source:
-#     type: binary
+#     type: binary_version
 #     binary_path: /usr/local/bin/tool  # Required: path to binary in container
 #     version_regex: 'version ([0-9.]+)'  # Required: regex pattern to extract version
 #     version_flags: '--version'  # Optional: flags to pass to binary (default: --version)
+#
+# Note: regex is matched with bash [[ =~ ]] (POSIX ERE) — use [0-9], not \d.
 #
 
 set -euo pipefail
@@ -230,16 +232,26 @@ execute_binary_in_container() {
 detect_version() {
   local config_file="$1"
   local image_name="$2"
+  local image_dir_override="${3:-}"
 
-  # Determine image directory (parent directory of config file)
+  # Determine image directory: prefer an explicit override (the orchestrator
+  # passes the real image dir when it has wrapped the config into a temp file),
+  # otherwise fall back to the config file's directory.
   local image_dir
-  image_dir=$(dirname "$config_file")
+  if [[ -n "$image_dir_override" ]]; then
+    image_dir="$image_dir_override"
+  else
+    image_dir=$(dirname "$config_file")
+  fi
 
   # Parse configuration
   local config_output
   config_output=$(parse_binary_config "$config_file" "$image_dir") || return 2
 
-  read -r binary_path version_regex version_flags <<< "$config_output"
+  # parse_binary_config emits three newline-separated values; read them line by
+  # line (version_regex may contain spaces, so it must own its whole line).
+  local binary_path version_regex version_flags
+  { read -r binary_path; read -r version_regex; read -r version_flags; } <<< "$config_output"
 
   if [[ "${DEBUG:-}" == "true" ]]; then
     echo "INFO: Detecting binary version: $binary_path" >&2
@@ -305,6 +317,7 @@ detect_version() {
 parse_arguments() {
   local config_file=""
   local image_name=""
+  local image_dir=""
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -314,6 +327,18 @@ parse_arguments() {
         ;;
       --image-name)
         image_name="$2"
+        shift 2
+        ;;
+      --image-dir)
+        # Real image directory (build context). The orchestrator passes this
+        # because it may hand --config a temp file outside the image tree.
+        image_dir="$2"
+        shift 2
+        ;;
+      --variant)
+        # Accepted for interface parity with the orchestrator (which always
+        # passes --variant, e.g. "default"). The binary is built from the
+        # image's single Dockerfile, so the variant does not affect detection.
         shift 2
         ;;
       *)
@@ -328,7 +353,7 @@ parse_arguments() {
     return 1
   fi
 
-  echo "$config_file" "$image_name"
+  echo "$config_file" "$image_name" "$image_dir"
   return 0
 }
 
@@ -340,7 +365,7 @@ main() {
     exit 2
   }
 
-  read -r config_file image_name <<< "$args"
+  read -r config_file image_name image_dir <<< "$args"
 
   if [[ "${DEBUG:-}" == "true" ]]; then
     echo "INFO: Binary version detector starting for image: $image_name" >&2
@@ -370,7 +395,7 @@ main() {
   # Shell functions cannot be wrapped with 'timeout' command as timeout cannot
   # execute bash functions directly. CI/CD environments enforce timeouts at job level.
   # Note: Do NOT redirect stderr here - we want INFO logs on stderr, JSON output on stdout
-  output=$(detect_version "$config_file" "$image_name") || {
+  output=$(detect_version "$config_file" "$image_name" "$image_dir") || {
     exit_code=$?
     if [[ $exit_code -eq 2 ]]; then
       # Fatal configuration error
@@ -383,8 +408,8 @@ main() {
     fi
   }
 
-  # Parse output (version and source URL)
-  read -r version source_url <<< "$output"
+  # Parse output (version and source URL are emitted on separate lines)
+  { read -r version; read -r source_url; } <<< "$output"
 
   if [[ -z "$version" ]]; then
     echo "ERROR: Detection returned empty version" >&2

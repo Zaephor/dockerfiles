@@ -211,6 +211,7 @@ invoke_detector() {
   local image_name="$3"
   local variant="$4"
   local input_format="${5:-file}"  # "file" or "json"
+  local image_dir="${6:-}"          # real image dir (build context for binary_version)
 
   local detector_script="${DETECTORS_DIR}/${detector_type}.sh"
 
@@ -250,6 +251,12 @@ invoke_detector() {
   local detector_cmd=("$detector_script" --config "$config_file" --image-name "$image_name")
   if [[ -n "$variant" ]]; then
     detector_cmd+=(--variant "$variant")
+  fi
+  # binary_version builds the image to read the binary's version, so it needs
+  # the real build context. The config file handed to it may be a temp file
+  # outside the image tree (JSON-wrapped configs), so pass the dir explicitly.
+  if [[ "$detector_type" == "binary_version" && -n "$image_dir" ]]; then
+    detector_cmd+=(--image-dir "$image_dir")
   fi
 
   output=$("${detector_cmd[@]}") || {
@@ -374,7 +381,7 @@ EOF
     local result
     local exit_code
 
-    result=$(invoke_detector "$detector_type" "$detector_config" "$image_name" "$variant" "$config_format") || {
+    result=$(invoke_detector "$detector_type" "$detector_config" "$image_name" "$variant" "$config_format" "$(dirname "$config_file")") || {
       exit_code=$?
 
       if [[ $exit_code -eq 2 ]]; then

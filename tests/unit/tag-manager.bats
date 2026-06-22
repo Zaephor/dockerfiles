@@ -139,3 +139,68 @@ load ../../.github/scripts/lib/tag-manager.sh
   run would_change_tags "1.0.0" "$versions"
   [ "$status" -eq 1 ]
 }
+
+@test "get_default_release_tags: lone semver gets full + minor + latest, no bare major" {
+  run get_default_release_tags "2.6.10" "2.6.10"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"2.6.10"* ]]
+  [[ "$output" == *"2.6"* ]]
+  [[ "$output" == *"latest"* ]]
+  # Bare-major tag must be omitted
+  run bash -c 'source .github/scripts/lib/tag-manager.sh; get_default_release_tags "2.6.10" "2.6.10" | grep -qx "2"'
+  [ "$status" -ne 0 ]
+}
+
+@test "get_default_release_tags: current version need not be in all_versions list" {
+  # all_versions defaults to the version itself
+  run get_default_release_tags "2.6.10"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"2.6.10"* ]]
+  [[ "$output" == *"latest"* ]]
+}
+
+@test "get_default_release_tags: old semver gets full + minor but not latest" {
+  run get_default_release_tags "2.6.9" "2.6.9 2.6.10"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"2.6.9"* ]]
+  [[ "$output" == *"2.6"* ]]
+  [[ "$output" != *"latest"* ]]
+}
+
+@test "get_default_release_tags: non-latest minor lineage gets only full version" {
+  run get_default_release_tags "2.5.0" "2.5.0 2.5.1 2.6.0"
+  [ "$status" -eq 0 ]
+  [ "$output" = "2.5.0" ]
+}
+
+@test "get_default_release_tags: prerelease gets only full version" {
+  run get_default_release_tags "2.6.10-rc1" "2.6.10-rc1"
+  [ "$status" -eq 0 ]
+  [ "$output" = "2.6.10-rc1" ]
+}
+
+@test "get_default_release_tags: image digest yields no tags" {
+  run get_default_release_tags "sha256:2f7265c4bcb6bc1a2683bef4396723cffd07c914f647943b74ee8423bb6feb0b" ""
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "get_default_release_tags: opaque/rolling tag yields no tags" {
+  run get_default_release_tags "edge" "edge"
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "get_default_release_tags: empty version yields no tags" {
+  run get_default_release_tags "" ""
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "get_default_release_tags: calver gets full + calver partials" {
+  run get_default_release_tags "2025.11.13" "2025.11.13"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"2025.11.13"* ]]
+  [[ "$output" == *"2025.11"* ]]
+  [[ "$output" == *"2025"* ]]
+}

@@ -34,6 +34,7 @@ COMMIT_SHA=""
 BRANCH_NAME=""
 DIGESTS_PATH="/tmp/digests"
 STATUS_PATH="/tmp/status"
+VERSION_PATH=""
 WORKSPACE="."
 
 #######################################
@@ -77,6 +78,10 @@ parse_args() {
         STATUS_PATH="$2"
         shift 2
         ;;
+      --version-path)
+        VERSION_PATH="$2"
+        shift 2
+        ;;
       --workspace)
         WORKSPACE="$2"
         shift 2
@@ -101,6 +106,8 @@ parse_args() {
 create_all_manifests() {
   # Source tag builder library for variant-specific tagging
   source "${SCRIPT_DIR}/lib/tag-builder.sh"
+  # Source tag manager for default-variant version tags (semver/calver lineage)
+  source "${SCRIPT_DIR}/lib/tag-manager.sh"
 
   # Repository name (lowercase required by Docker)
   local ghcr_repo
@@ -381,6 +388,59 @@ create_all_manifests() {
           done
         else
           warn "Failed to generate variant-specific tags for ${variant_name}"
+        fi
+      fi
+    else
+      # Default variant: emit version-derived release tags (semver/calver only).
+      #
+      # The committed history.jsonl is stale at manifest time (this build's
+      # record is still in artifacts, merged later by the commit-history job),
+      # so read the authoritative version from the per-build version artifact
+      # uploaded by build-arch. Falls back silently when unavailable.
+      if [ -n "$amd64_digest" ] || [ -n "$arm64_digest" ]; then
+        local detected_version=""
+        if [ -n "$VERSION_PATH" ]; then
+          local vfile varch
+          for varch in amd64 arm64; do
+            vfile="${VERSION_PATH}/version-${image_variant}-${varch}/version.txt"
+            if [ -f "$vfile" ]; then
+              detected_version=$(tr -d '[:space:]' < "$vfile")
+              [ -n "$detected_version" ] && break
+            fi
+          done
+        fi
+
+        if [ -n "$detected_version" ] && [ "$detected_version" != "null" ]; then
+          # Assemble all known versions for lineage / globally-latest decisions:
+          # the current version plus any previously recorded in history.
+          local all_versions="$detected_version"
+          local history_file="${WORKSPACE}/${image_name}/history.jsonl"
+          if [ -f "$history_file" ]; then
+            local hist_versions
+            hist_versions=$(jq -r '.version // empty' "$history_file" 2>/dev/null \
+              | grep -v '^$' | tr '\n' ' ' || echo "")
+            all_versions="${all_versions} ${hist_versions}"
+          fi
+
+          local release_tags
+          release_tags=$(get_default_release_tags "$detected_version" "$all_versions")
+
+          if [ -n "$release_tags" ]; then
+            echo "Generating version tags for default variant (version: ${detected_version}):"
+            echo "$release_tags" | while read -r tag_value; do
+              [ -z "$tag_value" ] && continue
+              echo "Creating manifest for version tag: ${image_repo}:${tag_value}..."
+              "${SCRIPT_DIR}/merge-manifest.sh" \
+                --tag "${tag_value}" \
+                "${manifest_args[@]}" || {
+                warn "Failed to create manifest for version tag: ${tag_value}"
+              }
+            done
+          else
+            echo "No version tags for default variant: '${detected_version}' is not semver/calver"
+          fi
+        else
+          echo "No detected version available for default variant '${image_name}'; using commit/branch tags only"
         fi
       fi
     fi

@@ -474,6 +474,24 @@ jobs:
           path: /tmp/digests/${{ matrix.config.arch }}.txt
           retention-days: 1
 
+      - name: Record detected version
+        if: steps.build.outcome == 'success'
+        run: |
+          # Persist the detected version so the create-manifest job can apply
+          # version-derived tags. The committed history.jsonl is stale at that
+          # stage (this build's record is merged later), so it is carried as an
+          # artifact instead.
+          mkdir -p /tmp/version
+          printf '%s' "${{ matrix.config.image.version }}" > /tmp/version/version.txt
+
+      - name: Upload version artifact
+        if: steps.build.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: version-${{ steps.artifact-name.outputs.escaped }}-${{ matrix.config.image.variant }}-${{ matrix.config.arch }}
+          path: /tmp/version/version.txt
+          retention-days: 1
+
       - name: Record build status
         if: always()
         run: |
@@ -663,6 +681,12 @@ jobs:
           path: /tmp/status
           pattern: status-*
 
+      - name: Download version artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/version
+          pattern: version-*
+
       - name: Create manifests for all images and variants
         run: |
           ./.github/scripts/create-manifests.sh \
@@ -671,6 +695,7 @@ jobs:
             --branch "${{ github.ref_name }}" \
             --digests-path /tmp/digests \
             --status-path /tmp/status \
+            --version-path /tmp/version \
             --workspace "${GITHUB_WORKSPACE}"
 
       - name: Verify tags in registry (T024)

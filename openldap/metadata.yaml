@@ -3,11 +3,15 @@ description: Minimal OpenLDAP (slapd 2.6) on Debian Trixie, configured entirely 
 
 # Track the slapd version actually shipped in the built image (Debian Trixie's
 # package). Re-detects/retags when the distro updates slapd.
-version_source: binary_version
-source:
+# NOTE: map schema (type + fields under version_source) is the form the
+# detectors/orchestrator actually read; the bare-scalar `version_source: <type>`
+# + `source:` block form is not supported at detection time.
+version_source:
+  type: binary_version
   binary_path: /usr/sbin/slapd
-  version_command: -VV
-  version_regex: slapd (\d+\.\d+\.\d+)
+  version_flags: -VV
+  # bash [[ =~ ]] is POSIX ERE: use [0-9], not \d.
+  version_regex: 'slapd ([0-9]+\.[0-9]+\.[0-9]+)'
 
 architectures: [amd64, arm64]
 
