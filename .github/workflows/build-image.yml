@@ -875,3 +875,49 @@ jobs:
             echo ""
             echo "For detailed logs, see workflow run: [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # build-arch uses continue-on-error so one architecture failing still lets the
+  # surviving architecture publish (graceful degradation). The side effect is a
+  # failed build never turns the run red. This gate restores that signal: it
+  # inspects the per-leg build-status artifacts and fails the run if any build
+  # failed, so failures are noticed and fixed instead of passing silently.
+  build-gate:
+    name: Build result gate
+    needs: [build-arch, create-manifest]
+    runs-on: ubuntu-latest
+    if: always() && github.event.inputs.dry_run != 'true'
+    timeout-minutes: 5
+    steps:
+      - name: Download build status artifacts
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/status
+          pattern: status-*
+
+      - name: Fail the run if any build failed
+        run: |
+          shopt -s nullglob
+          failures=()
+          for f in /tmp/status/status-*/*.txt; do
+            outcome="$(tr -d '[:space:]' < "$f")"
+            if [ "$outcome" != "success" ]; then
+              leg="$(basename "$(dirname "$f")")"
+              failures+=("${leg#status-}: ${outcome:-unknown}")
+            fi
+          done
+
+          if [ ${#failures[@]} -gt 0 ]; then
+            echo "::error title=Build failures::${#failures[@]} image build(s) failed"
+            {
+              echo "## ❌ Build failures (${#failures[@]})"
+              echo ""
+              for x in "${failures[@]}"; do
+                echo "- \`${x}\`"
+                echo "::error::build failed: ${x}"
+              done
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+          echo "All image builds succeeded (or there was nothing to build)."

@@ -1,27 +1,13 @@
 FROM ghcr.io/catthehacker/ubuntu:act-24.04
 
-# Install Docker Engine for Docker-in-Docker
+# The catthehacker/ubuntu base already ships a complete Docker stack via the
+# moby-* packages (moby-engine, moby-cli, moby-buildx, moby-compose,
+# moby-containerd, moby-tini). Installing docker.com's docker-ce packages on
+# top causes a dpkg file conflict (moby-tini owns /usr/libexec/docker/docker-init),
+# so we reuse the base's Docker and only add gosu, which the base lacks and the
+# DinD entrypoint needs for privilege drop.
 RUN apt-get update && \
-    apt-get install -y \
-        ca-certificates \
-        curl \
-        gnupg \
-        gosu \
-        lsb-release && \
-    install -m 0755 -d /etc/apt/keyrings && \
-    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg && \
-    chmod a+r /etc/apt/keyrings/docker.gpg && \
-    echo \
-      "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-      $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-      tee /etc/apt/sources.list.d/docker.list > /dev/null && \
-    apt-get update && \
-    apt-get install -y \
-        docker-ce \
-        docker-ce-cli \
-        containerd.io \
-        docker-buildx-plugin \
-        docker-compose-plugin && \
+    apt-get install -y --no-install-recommends gosu && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
