@@ -1,0 +1,19 @@
+name: factory-agent-base
+description: Software-factory agent base — Node + the pi coding agent;
+  renders pi models.json from LLM_PROVIDERS_JSON at start
+
+# Upstream-tracking (D10): the factory's pin discipline lives in its own
+# repo (versions.env + make e2e); this lane tracks npm latest and injects
+# the detected version as the VERSION build-arg.
+version_source:
+  type: http_json
+  url: https://registry.npmjs.org/@earendil-works/pi-coding-agent/latest
+  format: json
+  path: .version
+
+architectures: [amd64]
+
+labels:
+  org.opencontainers.image.title: "factory-agent-base"
+  org.opencontainers.image.description: "Node + pi coding agent base image
+    for software-factory zone daemons"

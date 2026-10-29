@@ -1,0 +1,16 @@
+name: factory-looperd
+description: Software-factory delivery-loop daemon — looperd/looper + gh
+  CLI on factory-agent-base
+
+# Upstream-tracking (D10): looper release version detected here and
+# injected as the VERSION build-arg; gh floats on the latest release URL.
+version_source:
+  type: github_releases
+  repo: nexu-io/looper
+
+architectures: [amd64]
+
+labels:
+  org.opencontainers.image.title: "factory-looperd"
+  org.opencontainers.image.description: "Looper delivery-loop daemon image
+    for software-factory zones"
