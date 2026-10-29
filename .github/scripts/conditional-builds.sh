@@ -19,6 +19,15 @@ if [[ ! -f "$SCRIPT_DIR/lib/history.sh" ]]; then
 fi
 source "$SCRIPT_DIR/lib/history.sh"
 
+# Decision logging helper (stderr only; stdout carries JSON)
+# Note: logging.sh does not define log_decision - this local helper keeps
+# should_build_image usable both standalone and when sourced elsewhere.
+log_decision() {
+    local message="$1"
+    echo "$message" >&2
+    return 0
+}
+
 # Determine if an image should be built
 # Args:
 #   $1: Image name
@@ -107,7 +116,10 @@ git_files_changed() {
 # Args:
 #   $1: Path to history.jsonl
 # Returns:
-#   Last recorded version, or empty string if none
+#   Last recorded non-empty version, or empty string if none.
+#   Records with an empty or null version are unreliable (produced by failed
+#   version detection) and are skipped so they never masquerade as a real
+#   version change.
 get_last_build_version() {
     local history_file="$1"
 
@@ -115,8 +127,22 @@ get_last_build_version() {
         return 0
     fi
 
-    # Get the last line and extract version field
-    tail -1 "$history_file" 2>/dev/null | jq -r '.version // empty' 2>/dev/null || true
+    # Read records from newest to oldest, return the first non-empty version
+    local -a lines=()
+    mapfile -t lines < "$history_file" 2>/dev/null || return 0
+
+    local i line version
+    for (( i=${#lines[@]}-1; i>=0; i-- )); do
+        line="${lines[$i]}"
+        [[ -z "$line" ]] && continue
+        version=$(echo "$line" | jq -r '.version // empty' 2>/dev/null) || continue
+        if [[ -n "$version" ]]; then
+            echo "$version"
+            return 0
+        fi
+    done
+
+    return 0
 }
 
 # Export functions

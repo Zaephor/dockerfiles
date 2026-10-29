@@ -284,7 +284,12 @@ detect_version() {
     return $exit_code
   }
 
-  read -r repo auth_token_secret prerelease_filter <<< "$config_output"
+  # Parse one value per line (parse_github_config outputs newline-separated fields)
+  {
+    read -r repo
+    read -r auth_token_secret
+    read -r prerelease_filter
+  } <<< "$config_output"
 
   if [[ "${DEBUG:-}" == "true" ]]; then
     echo "INFO: Detecting GitHub Releases version for: $repo" >&2
@@ -345,6 +350,12 @@ parse_arguments() {
         ;;
       --image-name)
         image_name="$2"
+        shift 2
+        ;;
+      --variant)
+        # Accepted for interface parity with the orchestrator (which always
+        # passes --variant, e.g. "default"). The tracked release does not
+        # depend on the variant, so it is safely ignored here.
         shift 2
         ;;
       *)
@@ -414,8 +425,11 @@ main() {
     fi
   }
 
-  # Parse output (version and source URL)
-  read -r version source_url <<< "$output"
+  # Parse output (version and source URL on separate lines)
+  {
+    read -r version
+    read -r source_url
+  } <<< "$output"
 
   if [[ -z "$version" ]]; then
     if [[ "${DEBUG:-}" == "true" ]]; then

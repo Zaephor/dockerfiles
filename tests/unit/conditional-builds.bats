@@ -114,3 +114,63 @@ load_conditional_builds() {
     # Verify exit code is 0 (success)
     [[ $? -eq 0 ]]
 }
+
+# ============================================================================
+# get_last_build_version: Empty-Version Record Handling
+# ============================================================================
+
+# Test: trailing records with empty version are skipped (poisoned history)
+@test "get_last_build_version skips trailing records with empty version" {
+    load_conditional_builds
+
+    cat > "$IMAGE_DIR/history.jsonl" <<'EOF'
+{"version":"1.0.0","timestamp":"2025-01-01T00:00:00Z","status":"success"}
+{"version":"","timestamp":"2025-01-02T00:00:00Z","status":"success"}
+EOF
+
+    result=$(get_last_build_version "$IMAGE_DIR/history.jsonl")
+
+    # Must fall back to the last non-empty version, not return empty string
+    [[ "$result" == "1.0.0" ]]
+}
+
+# Test: null version records are also skipped
+@test "get_last_build_version skips trailing records with null version" {
+    load_conditional_builds
+
+    cat > "$IMAGE_DIR/history.jsonl" <<'EOF'
+{"version":"2.5.3","timestamp":"2025-01-01T00:00:00Z","status":"success"}
+{"version":null,"timestamp":"2025-01-02T00:00:00Z","status":"success"}
+EOF
+
+    result=$(get_last_build_version "$IMAGE_DIR/history.jsonl")
+
+    [[ "$result" == "2.5.3" ]]
+}
+
+# Test: returns empty when history contains only empty versions
+@test "get_last_build_version returns empty when all versions are empty" {
+    load_conditional_builds
+
+    cat > "$IMAGE_DIR/history.jsonl" <<'EOF'
+{"version":"","timestamp":"2025-01-01T00:00:00Z","status":"success"}
+EOF
+
+    result=$(get_last_build_version "$IMAGE_DIR/history.jsonl")
+
+    [[ -z "$result" ]]
+}
+
+# Test: normal last version still returned when it is non-empty
+@test "get_last_build_version returns last non-empty version" {
+    load_conditional_builds
+
+    cat > "$IMAGE_DIR/history.jsonl" <<'EOF'
+{"version":"1.0.0","timestamp":"2025-01-01T00:00:00Z","status":"success"}
+{"version":"1.1.0","timestamp":"2025-01-02T00:00:00Z","status":"success"}
+EOF
+
+    result=$(get_last_build_version "$IMAGE_DIR/history.jsonl")
+
+    [[ "$result" == "1.1.0" ]]
+}

@@ -94,13 +94,14 @@ teardown() {
 }
 
 @test "orchestrator reports all detectors failed" {
-  # Create config with two non-existent detectors
+  # Create config with two failing (but valid) detectors
+  # Note: detector types must match script filenames (underscore form)
   local invalid_config="${TEST_DIR}/all-fail.yaml"
   cat > "$invalid_config" <<'EOF'
 version_source:
-  - type: github-releases
+  - type: github_releases
     repo: definitely-not-real-org-xyz/definitely-not-real-repo-xyz
-  - type: docker-tags
+  - type: docker_tag
     registry: invalid.example.com
     image: nonexistent/image
 EOF

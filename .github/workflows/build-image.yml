@@ -89,7 +89,9 @@ jobs:
         run: sudo npm install -g bats
 
       - name: Run BATS tests
-        run: bats tests/unit/**/*.bats
+        run: |
+          shopt -s globstar
+          bats tests/unit/**/*.bats
 
   determine-changes:
     name: Determine Changed Images

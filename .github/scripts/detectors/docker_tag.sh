@@ -370,6 +370,12 @@ parse_arguments() {
         image_name="$2"
         shift 2
         ;;
+      --variant)
+        # Accepted for interface parity with the orchestrator (which always
+        # passes --variant, e.g. "default"). The tracked tag list does not
+        # depend on the variant, so it is safely ignored here.
+        shift 2
+        ;;
       *)
         echo "ERROR: Unknown argument: $1" >&2
         return 1
@@ -431,8 +437,11 @@ main() {
     fi
   }
 
-  # Parse output (version and source URL)
-  read -r version source_url <<< "$output"
+  # Parse output (version and source URL on separate lines)
+  {
+    read -r version
+    read -r source_url
+  } <<< "$output"
 
   if [[ -z "$version" ]]; then
     echo "ERROR: Detection returned empty version" >&2

@@ -121,7 +121,8 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Validate required parameters (VERSION can be empty)
+# Validate required parameters (VERSION is validated by append_build_record:
+# empty versions are refused to keep history trustworthy)
 if [ -z "$IMAGE_DIR" ] || [ -z "$COMMIT" ] || [ -z "$BRANCH" ] || [ -z "$ARCH" ] || [ -z "$BUILD_STATUS" ]; then
     echo "Error: Missing required parameters" >&2
     exit 1

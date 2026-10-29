@@ -267,10 +267,9 @@ parse_json_response() {
   local jsonpath="$2"
 
   # Convert JSONPath to jq filter
-  # Simple conversion: $.foo.bar -> .foo.bar
-  local jq_filter="${jsonpath#$.}"
-  [[ "$jq_filter" == "$jsonpath" ]] && jq_filter=".${jsonpath#$}"
-  jq_filter=".${jq_filter}"
+  # Handles: $.foo.bar -> .foo.bar, .foo.bar -> .foo.bar, foo.bar -> .foo.bar
+  local jq_filter="${jsonpath#$}"
+  [[ "$jq_filter" == .* ]] || jq_filter=".${jq_filter}"
 
   echo "INFO: Parsing JSON with jq filter: $jq_filter" >&2
 
@@ -347,7 +346,14 @@ detect_version() {
   local config_output
   config_output=$(parse_http_config "$config_file") || return 2
 
-  read -r url format path headers_json <<< "$config_output"
+  # Parse one value per line (parse_http_config outputs newline-separated fields)
+  local url format path headers_json
+  {
+    read -r url
+    read -r format
+    read -r path
+    read -r headers_json
+  } <<< "$config_output"
 
   echo "INFO: Detecting HTTP API version from: $url" >&2
 
@@ -369,7 +375,7 @@ detect_version() {
   }
 
   # Parse response based on format
-  local version
+  local version=""
   if [[ "$format" == "json" ]]; then
     version=$(parse_json_response "$response" "$path") || {
       output_error "PARSE_ERROR" "Failed to parse JSON response with JSONPath: $path" "$DETECTOR_NAME"
@@ -380,6 +386,9 @@ detect_version() {
       output_error "PARSE_ERROR" "Failed to parse XML response with XPath: $path" "$DETECTOR_NAME"
       return 1
     }
+  else
+    output_error "CONFIG_ERROR" "Unknown format: $format (must be json or xml)" "$DETECTOR_NAME"
+    return 2
   fi
 
   if [[ -z "$version" ]]; then
@@ -412,6 +421,12 @@ parse_arguments() {
         ;;
       --image-name)
         image_name="$2"
+        shift 2
+        ;;
+      --variant)
+        # Accepted for interface parity with the orchestrator (which always
+        # passes --variant, e.g. "default"). The polled endpoint does not
+        # depend on the variant, so it is safely ignored here.
         shift 2
         ;;
       *)
@@ -476,7 +491,13 @@ main() {
   }
 
   # Parse output (version and source URL)
-  read -r version source_url <<< "$output"
+  # Parse output (version and source URL on separate lines)
+  local version=""
+  local source_url=""
+  {
+    read -r version
+    read -r source_url
+  } <<< "$output"
 
   if [[ -z "$version" ]]; then
     echo "ERROR: Detection returned empty version" >&2

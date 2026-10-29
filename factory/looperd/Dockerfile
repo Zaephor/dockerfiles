@@ -37,7 +37,8 @@ RUN chmod 0755 /entrypoint.sh /usr/local/bin/looper /usr/local/bin/looperd /usr/
 ENV HOME=/home/looper \
     LOOPER_CONFIG=/home/looper/.looper/config.toml
 
-USER looper
+# Numeric uid required: named uid may not resolve on the host (DL3066)
+USER 1000
 WORKDIR /home/looper
 
 ENTRYPOINT ["/entrypoint.sh"]

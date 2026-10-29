@@ -123,10 +123,14 @@ append_build_record() {
     esac
   done
 
-  # Validate required arguments (VERSION can be empty)
-  if [[ -z "$image_dir" ]] || [[ -z "$commit" ]] || \
+  # Validate required arguments.
+  # VERSION must be non-empty: an empty version means upstream detection
+  # failed, and recording it would poison version-change comparisons in
+  # should_build_image (empty == empty skips forever, empty != last builds
+  # forever). Callers (record-build-history.sh) degrade gracefully on error.
+  if [[ -z "$image_dir" ]] || [[ -z "$version" ]] || [[ -z "$commit" ]] || \
      [[ -z "$branch" ]] || [[ -z "$arch" ]] || [[ -z "$status" ]]; then
-    echo "ERROR: Missing required arguments to append_build_record" >&2
+    echo "ERROR: Invalid arguments to append_build_record (version must be non-empty; refusing to record a versionless build)" >&2
     return 1
   fi
 

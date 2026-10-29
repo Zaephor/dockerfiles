@@ -35,6 +35,26 @@ teardown() {
   [[ $status -eq 0 || $status -eq 1 || $status -eq 2 ]]
 }
 
+@test "git-commit detector accepts --variant (orchestrator always passes it)" {
+  run .github/scripts/detectors/git_commit.sh \
+    --config "$TEST_CONFIG" \
+    --image-name test-image \
+    --variant default
+  # --variant must not be rejected as an unknown argument
+  [[ "$output" != *"Unknown argument"* ]]
+  # Must not fail as CONFIG_ERROR caused by argument parsing
+  [[ "$output" != *'"error_code": "CONFIG_ERROR"'*"Invalid arguments"* ]]
+}
+
+@test "git-commit detector still rejects genuinely unknown arguments" {
+  run .github/scripts/detectors/git_commit.sh \
+    --config "$TEST_CONFIG" \
+    --image-name test-image \
+    --bogus value
+  [[ "$output" == *"Unknown argument"* || "$output" == *"CONFIG_ERROR"* ]]
+  [ "$status" -eq 2 ]
+}
+
 @test "git-commit detector requires --config argument" {
   run .github/scripts/detectors/git_commit.sh \
     --image-name test-image

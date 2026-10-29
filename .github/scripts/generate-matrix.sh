@@ -394,6 +394,14 @@ process_image_variants() {
             if [[ -n "$version_override" ]]; then
                 build_reason="force_rebuild_with_version_override"
             fi
+        elif [[ -z "$effective_version" ]]; then
+            # Version detection failed (or returned an empty version).
+            # Never compare an empty version against history - that produces
+            # bogus "version_changed" decisions and poisons history with
+            # empty versions. Include as a safety fallback with an explicit
+            # reason instead (documented in docs/workflows.md).
+            should_build="true"
+            build_reason="version_detection_failed"
         else
             # Call should_build_image with variant parameter
             # Use effective_version (which may be overridden) for the build decision

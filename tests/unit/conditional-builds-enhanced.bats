@@ -84,8 +84,7 @@ should_force_rebuild() {
     should_force_rebuild "test-app" "$force_rebuild_list"
     [ $? -eq 0 ]
 
-    should_force_rebuild "other-image" "$force_rebuild_list"
-    [ $? -ne 0 ]
+    run ! should_force_rebuild "other-image" "$force_rebuild_list"
 }
 
 # Test image_filter includes only listed images
@@ -98,8 +97,7 @@ should_force_rebuild() {
     should_include_image "test-app" "$image_filter"
     [ $? -eq 0 ]
 
-    should_include_image "other-image" "$image_filter"
-    [ $? -ne 0 ]
+    run ! should_include_image "other-image" "$image_filter"
 }
 
 # Test image_filter empty includes all
@@ -126,19 +124,16 @@ should_force_rebuild() {
     should_skip_image "deprecated" "$skip_list"
     [ $? -eq 0 ]
 
-    should_skip_image "hello-world" "$skip_list"
-    [ $? -ne 0 ]
+    run ! should_skip_image "hello-world" "$skip_list"
 }
 
 # Test skip_images empty skips nothing
 @test "conditional-builds: empty skip_images skips no images" {
     local skip_list=""
 
-    should_skip_image "test-broken" "$skip_list"
-    [ $? -ne 0 ]
+    run ! should_skip_image "test-broken" "$skip_list"
 
-    should_skip_image "hello-world" "$skip_list"
-    [ $? -ne 0 ]
+    run ! should_skip_image "hello-world" "$skip_list"
 }
 
 # Test force_rebuild overrides skip
@@ -163,8 +158,7 @@ should_force_rebuild() {
     # hello-world is in filter and not in skip
     should_include_image "hello-world" "$image_filter"
     [ $? -eq 0 ]
-    should_skip_image "hello-world" "$skip_list"
-    [ $? -ne 0 ]
+    run ! should_skip_image "hello-world" "$skip_list"
 
     # test-app is in filter but also in skip
     should_include_image "test-app" "$image_filter"
@@ -173,8 +167,7 @@ should_force_rebuild() {
     [ $? -eq 0 ]
 
     # unrelated-image is not in filter
-    should_include_image "unrelated-image" "$image_filter"
-    [ $? -ne 0 ]
+    run ! should_include_image "unrelated-image" "$image_filter"
 }
 
 # Test version_override parsing

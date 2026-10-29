@@ -11,6 +11,8 @@ setup() {
     # Create temporary test directory
     export TEST_DIR="$(mktemp -d)"
     export REPO_ROOT="$TEST_DIR"
+    # Real repository root (this test file lives in <repo>/tests/integration)
+    export REAL_ROOT="$(cd "$(dirname "$BATS_TEST_FILENAME")/../.." && pwd)"
 
     # Create minimal test images directory structure
     mkdir -p "$TEST_DIR/hello-world"
@@ -32,10 +34,8 @@ teardown() {
 
 # Test matrix generation returns valid JSON
 @test "dry-run: matrix generation produces valid JSON output" {
-    cd "$REPO_ROOT"
-
-    # Run generate-matrix.sh and capture output
-    output=$(.github/scripts/generate-matrix.sh --repo-root . 2>&1)
+    # Run the real generate-matrix.sh against the fixture repo
+    output=$(bash "$REAL_ROOT/.github/scripts/generate-matrix.sh" --repo-root "$REPO_ROOT" 2>/dev/null)
 
     # Validate output is valid JSON
     echo "$output" | jq . > /dev/null
@@ -44,10 +44,8 @@ teardown() {
 
 # Test empty matrix handling
 @test "dry-run: empty matrix is properly formatted" {
-    cd "$REPO_ROOT"
-
-    # Run generate-matrix with no changes (empty matrix expected)
-    output=$(.github/scripts/generate-matrix.sh --repo-root . 2>&1)
+    # Run generate-matrix against fixture repo (no history: all images included)
+    output=$(bash "$REAL_ROOT/.github/scripts/generate-matrix.sh" --repo-root "$REPO_ROOT" 2>/dev/null)
 
     # Check if output contains empty image array
     if echo "$output" | jq -e '.image | length > 0' > /dev/null 2>&1; then
@@ -120,7 +118,7 @@ teardown() {
     included_count=0
     for image in "${test_images[@]}"; do
         if ! echo "$skip_list" | grep -q "$(echo "$image" | sed 's/[]\/$*.^[]/\\&/g')"; then
-            ((included_count++))
+            included_count=$((included_count + 1))
         fi
     done
 

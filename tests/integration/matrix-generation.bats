@@ -178,3 +178,59 @@ setup() {
   run "$MATRIX_SCRIPT" --repo-root "$REPO_ROOT"
   [ "$status" -eq 0 ]
 }
+
+# ============================================================================
+# Version Integrity Tests
+# ============================================================================
+
+@test "no matrix entry reports version_changed with an empty version" {
+  # An empty detected version means detection failed; it must never be
+  # compared against history as a real version change.
+  run bash -c "\"$MATRIX_SCRIPT\" --repo-root \"$REPO_ROOT\" 2>/dev/null"
+  [ "$status" -eq 0 ]
+
+  count=$(echo "$output" | jq '[.image[] | select(.version == "" and .reason == "version_changed")] | length')
+  [ "$count" -eq 0 ]
+}
+
+@test "detection failure yields version_detection_failed reason, not version_changed" {
+  # Fixture repo with an unknown detector type: deterministic detection failure
+  FIXTURE_REPO="$(mktemp -d)"
+  mkdir -p "$FIXTURE_REPO/broken-image"
+  cat > "$FIXTURE_REPO/broken-image/metadata.yaml" <<'EOF'
+name: broken-image
+description: Fixture image with an unresolvable detector
+version_source:
+  type: nonexistent_detector
+  repo: owner/test-project
+architectures: [amd64]
+EOF
+  touch "$FIXTURE_REPO/broken-image/Dockerfile"
+
+  run bash -c "\"$MATRIX_SCRIPT\" --repo-root \"$FIXTURE_REPO\" 2>/dev/null"
+  [ "$status" -eq 0 ]
+
+  # Safety fallback per docs: include the image but flag the real reason
+  reason=$(echo "$output" | jq -r '.image[0].reason')
+  [ "$reason" = "version_detection_failed" ]
+
+  rm -rf "$FIXTURE_REPO"
+}
+
+@test "version detection succeeds for git_commit image through variant path" {
+  # The orchestrator always passes --variant; git_commit must return a real
+  # version (not fail on argument parsing) for ohf-voice/linux-voice-assistant.
+  # Requires GitHub API access: skip when unauthenticated rate limit is spent.
+  local remaining
+  remaining=$(curl -s https://api.github.com/rate_limit 2>/dev/null | jq -r '.resources.core.remaining // 0' 2>/dev/null)
+  if [ "${remaining:-0}" -lt 5 ]; then
+    skip "GitHub API rate limit exhausted (remaining=${remaining:-unknown})"
+  fi
+
+  run bash -c "\"$REPO_ROOT/.github/scripts/version-detection.sh\" --config \"$REPO_ROOT/ohf-voice/linux-voice-assistant/metadata.yaml\" --image-name ohf-voice/linux-voice-assistant --variant default 2>/dev/null"
+  [ "$status" -eq 0 ]
+
+  version=$(echo "$output" | jq -r '.version')
+  [ -n "$version" ]
+  [ "$version" != "null" ]
+}

@@ -455,6 +455,12 @@ parse_arguments() {
         image_name="$2"
         shift 2
         ;;
+      --variant)
+        # Accepted for interface parity with the orchestrator (which always
+        # passes --variant, e.g. "default"). The tracked commit does not
+        # depend on the variant, so it is safely ignored here.
+        shift 2
+        ;;
       *)
         echo "ERROR: Unknown argument: $1" >&2
         return 1
