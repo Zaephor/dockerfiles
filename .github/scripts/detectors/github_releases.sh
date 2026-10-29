@@ -228,8 +228,10 @@ get_latest_version_from_api() {
   local include_prerelease="${2:-false}"
 
   # Parse releases into array
+  # Filter order: skip drafts always; skip prereleases unless include_prerelease is "true"
   local releases
-  releases=$(echo "$response" | jq -r '.[] | select(.draft == false | select(.prerelease == false or . == "'"$include_prerelease"'")) | .tag_name' 2>/dev/null | head -20) || {
+  releases=$(echo "$response" | jq -r --arg include_prerelease "$include_prerelease" \
+    '.[] | select(.draft == false) | select((.prerelease == false) or ($include_prerelease == "true")) | .tag_name' 2>/dev/null | head -20) || {
     if [[ "${DEBUG:-}" == "true" ]]; then
       echo "ERROR: Failed to parse GitHub API response" >&2
     fi
@@ -296,13 +298,14 @@ detect_version() {
   fi
 
   # Get authentication token if secret is specified
+  # A named-but-unset secret (e.g. local runs without CI credentials) degrades
+  # to unauthenticated detection rather than failing outright.
   local token=""
   if [[ -n "$auth_token_secret" ]]; then
     # Use indirect variable expansion to get token from environment
     token="${!auth_token_secret:-}"
     if [[ -z "$token" ]]; then
-      output_error "AUTH_FAILURE" "Secret ${auth_token_secret} not found in environment" "$DETECTOR_NAME"
-      return 1
+      echo "WARN: Secret ${auth_token_secret} not found in environment - continuing unauthenticated" >&2
     fi
   fi
 

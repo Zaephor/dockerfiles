@@ -290,3 +290,118 @@ EOF
 @test "github-releases detector respects 30-second timeout" {
   skip "Timeout testing would require network mocking"
 }
+
+# ============================================================================
+# Release Selection Tests (hermetic, via curl PATH stub)
+# ============================================================================
+
+# Helper: stub curl to emit a canned GitHub Releases API response
+make_curl_stub() {
+  local response_file="$1"
+  mkdir -p "${TEST_DIR}/stub"
+  cat > "${TEST_DIR}/stub/curl" <<EOF
+#!/usr/bin/env bash
+cat "${response_file}"
+EOF
+  chmod +x "${TEST_DIR}/stub/curl"
+}
+
+@test "github-releases detector extracts latest stable release (skips prerelease and draft)" {
+  cat > "${TEST_DIR}/releases.json" <<'EOF'
+[
+  {"tag_name": "v0.17.0-rc1", "draft": false, "prerelease": true},
+  {"tag_name": "v0.16.2", "draft": false, "prerelease": false},
+  {"tag_name": "v0.16.3-draft", "draft": true, "prerelease": false},
+  {"tag_name": "v0.15.0", "draft": false, "prerelease": false}
+]
+EOF
+  make_curl_stub "${TEST_DIR}/releases.json"
+
+  export CACHE_DIR="${TEST_DIR}/cache"
+  export PATH="${TEST_DIR}/stub:${PATH}"
+
+  run .github/scripts/detectors/github_releases.sh \
+    --config "$TEST_CONFIG" \
+    --image-name test-image
+  [ "$status" -eq 0 ]
+
+  json=$(echo "$output" | sed -n '/^{/,$p')
+  version=$(echo "$json" | jq -r '.version')
+  [ "$version" = "0.16.2" ]
+}
+
+@test "github-releases detector includes prereleases when prerelease_filter is true" {
+  cat > "${TEST_DIR}/releases.json" <<'EOF'
+[
+  {"tag_name": "v0.17.0-rc1", "draft": false, "prerelease": true},
+  {"tag_name": "v0.16.2", "draft": false, "prerelease": false}
+]
+EOF
+  make_curl_stub "${TEST_DIR}/releases.json"
+
+  cat > "$TEST_CONFIG" <<'EOF'
+version_source:
+  type: github-releases
+  repo: owner/test-project
+  prerelease_filter: "true"
+EOF
+
+  export CACHE_DIR="${TEST_DIR}/cache"
+  export PATH="${TEST_DIR}/stub:${PATH}"
+
+  run .github/scripts/detectors/github_releases.sh \
+    --config "$TEST_CONFIG" \
+    --image-name test-image
+  [ "$status" -eq 0 ]
+
+  json=$(echo "$output" | sed -n '/^{/,$p')
+  version=$(echo "$json" | jq -r '.version')
+  [ "$version" = "0.17.0-rc1" ]
+}
+
+@test "github-releases detector reports failure when repo has no stable releases" {
+  cat > "${TEST_DIR}/releases.json" <<'EOF'
+[{"tag_name": "v0.17.0-rc1", "draft": false, "prerelease": true}]
+EOF
+  make_curl_stub "${TEST_DIR}/releases.json"
+
+  export CACHE_DIR="${TEST_DIR}/cache"
+  export PATH="${TEST_DIR}/stub:${PATH}"
+
+  run .github/scripts/detectors/github_releases.sh \
+    --config "$TEST_CONFIG" \
+    --image-name test-image
+  [ "$status" -eq 1 ]
+
+  json=$(echo "$output" | sed -n '/^{/,$p')
+  echo "$json" | jq -e '.version == null' >/dev/null
+}
+
+@test "github-releases detector falls back to unauthenticated when auth secret is unset" {
+  cat > "${TEST_DIR}/releases.json" <<'EOF'
+[{"tag_name": "v0.16.2", "draft": false, "prerelease": false}]
+EOF
+  make_curl_stub "${TEST_DIR}/releases.json"
+
+  cat > "$TEST_CONFIG" <<'EOF'
+version_source:
+  type: github-releases
+  repo: owner/test-project
+  auth_token_secret: GITHUB_TOKEN
+EOF
+
+  # Secret named in config but absent from the environment (e.g. local runs):
+  # detection must degrade to unauthenticated, not hard-fail.
+  unset GITHUB_TOKEN || true
+  export CACHE_DIR="${TEST_DIR}/cache"
+  export PATH="${TEST_DIR}/stub:${PATH}"
+
+  run .github/scripts/detectors/github_releases.sh \
+    --config "$TEST_CONFIG" \
+    --image-name test-image
+  [ "$status" -eq 0 ]
+
+  json=$(echo "$output" | sed -n '/^{/,$p')
+  version=$(echo "$json" | jq -r '.version')
+  [ "$version" = "0.16.2" ]
+}

@@ -7,6 +7,10 @@ version_source:
   type: git_commit
   repo: OHF-Voice/linux-voice-assistant
   branch: main
+  # CI provides GITHUB_TOKEN to matrix generation; raises the API rate limit
+  # from 60/hr (shared runner IPs are often exhausted) to 5000/hr. Local
+  # runs without the token fall back to unauthenticated automatically.
+  auth_token_secret: GITHUB_TOKEN
 
 architectures: [amd64, arm64]
 

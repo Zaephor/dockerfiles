@@ -381,13 +381,14 @@ detect_version() {
   fi
 
   # Get authentication token if secret is specified
+  # A named-but-unset secret (e.g. local runs without CI credentials) degrades
+  # to unauthenticated detection rather than failing outright.
   local token=""
   if [[ -n "$auth_token_secret" ]]; then
     # Use indirect variable expansion to get token from environment
     token="${!auth_token_secret:-}"
     if [[ -z "$token" ]]; then
-      output_error "AUTH_FAILURE" "Secret ${auth_token_secret} not found in environment" "$DETECTOR_NAME"
-      return 1
+      echo "WARN: Secret ${auth_token_secret} not found in environment - continuing unauthenticated" >&2
     fi
   fi
 
