@@ -1,16 +1,12 @@
 name: factory-looperd
-description: Software-factory delivery-loop daemon — looperd/looper + gh
-  CLI on factory-agent-base
+description: Software-factory delivery-loop daemon — self-contained
+  (node + pi baked in); looperd/looper + gh CLI
 
 # Upstream-tracking (D10): looper release version detected here and
 # injected as the VERSION build-arg; gh floats on the latest release URL.
 version_source:
   type: github_releases
   repo: nexu-io/looper
-  # CI provides GITHUB_TOKEN to matrix generation; raises the API rate limit
-  # from 60/hr (shared runner IPs are often exhausted) to 5000/hr. Local
-  # runs without the token fall back to unauthenticated automatically.
-  auth_token_secret: GITHUB_TOKEN
 
 architectures: [amd64]
 
