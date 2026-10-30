@@ -27,9 +27,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Clone repository at specific commit
-RUN git clone --depth 1 https://github.com/rhasspy/wyoming-satellite.git . \
-    && git fetch --depth 1 origin "${VERSION}" \
-    && git checkout "${VERSION}"
+# For commit SHAs, clone without depth limit then checkout (git can only
+# fetch refs or full 40-char SHAs, not abbreviated SHAs like "7a3ba2b")
+RUN if echo "${VERSION}" | grep -qE '^[0-9a-f]{7,40}$'; then \
+      git clone https://github.com/rhasspy/wyoming-satellite.git . && \
+      git checkout "${VERSION}"; \
+    else \
+      git clone --depth 1 --branch "${VERSION}" https://github.com/rhasspy/wyoming-satellite.git .; \
+    fi
 
 # Install with all optional dependencies (VAD, noise suppression)
 # hadolint ignore=DL3013
