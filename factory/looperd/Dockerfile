@@ -69,7 +69,7 @@ RUN mkdir -p /config /data \
 ENV HOME=/home/looper \
     LOOPER_CONFIG=/home/looper/.looper/config.toml
 
-USER looper
+USER 1000
 WORKDIR /home/looper
 
 ENTRYPOINT ["/entrypoint.sh"]
